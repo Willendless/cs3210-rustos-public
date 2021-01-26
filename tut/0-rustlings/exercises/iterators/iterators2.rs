@@ -9,7 +9,11 @@ pub fn capitalize_first(input: &str) -> String {
     let mut c = input.chars();
     match c.next() {
         None => String::new(),
+<<<<<<< HEAD
         Some(first) => first.to_ascii_uppercase().to_string() + c.as_str(),
+=======
+        Some(first) => first.collect::<String>() + c.as_str(),
+>>>>>>> skeleton/lab2
     }
 }
 

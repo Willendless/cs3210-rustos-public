@@ -5,9 +5,10 @@ struct ErrorB;
 
 enum Error {
     A(ErrorA),
-    B(ErrorB),
+    B(ErrorB)
 }
 
+<<<<<<< HEAD
 impl From<ErrorB> for Error {
     fn from(err: ErrorB) -> Self {
         Error::B(err)
@@ -20,6 +21,8 @@ impl From<ErrorA> for Error {
     }
 }
 
+=======
+>>>>>>> skeleton/lab2
 fn do_a() -> Result<u16, ErrorA> {
     Err(ErrorA)
 }
@@ -32,4 +35,4 @@ fn do_both() -> Result<(u16, u32), Error> {
     Ok((do_a()?, do_b()?))
 }
 
-fn main() {}
+fn main() { }

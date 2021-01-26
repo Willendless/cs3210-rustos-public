@@ -1,11 +1,16 @@
 // FIXME: Make me compile! Diff budget: 1 line.
 
+<<<<<<< HEAD
 // What traits does this struct need to derive?
 #[derive(Debug, Copy, Clone)]
+=======
+// I AM NOT DONE
+
+>>>>>>> skeleton/lab2
 enum Duration {
     MilliSeconds(u64),
     Seconds(u32),
-    Minutes(u16),
+    Minutes(u16)
 }
 
 pub fn main() {

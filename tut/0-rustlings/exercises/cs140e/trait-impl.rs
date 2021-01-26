@@ -12,7 +12,6 @@ enum Duration {
     Minutes(u16)
 }
 
-<<<<<<< HEAD
 // What traits does `Duration` need to implement?
 
 use std::cmp::Ordering;
@@ -43,8 +42,6 @@ impl PartialOrd for Duration {
     }
 }
 
-=======
->>>>>>> skeleton/lab2
 #[test]
 fn traits() {
     assert_eq!(Seconds(120), Minutes(2));

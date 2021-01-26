@@ -8,7 +8,6 @@ enum Error {
     B(ErrorB)
 }
 
-<<<<<<< HEAD
 impl From<ErrorB> for Error {
     fn from(err: ErrorB) -> Self {
         Error::B(err)
@@ -21,8 +20,6 @@ impl From<ErrorA> for Error {
     }
 }
 
-=======
->>>>>>> skeleton/lab2
 fn do_a() -> Result<u16, ErrorA> {
     Err(ErrorA)
 }

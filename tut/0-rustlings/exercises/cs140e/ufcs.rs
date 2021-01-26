@@ -7,13 +7,9 @@ pub trait Foo {
 }
 
 pub trait FooToo {
-<<<<<<< HEAD
     fn foo2(&self) -> usize {
         2
     }
-=======
-    fn foo(&self) -> usize { 2 }
->>>>>>> skeleton/lab2
 }
 
 impl Foo for Dummy { }

@@ -1,17 +1,11 @@
 // FIXME: Make me pass! Diff budget: 30 lines.
 
-<<<<<<< HEAD
 #[derive(Default)]
-=======
-// I AM NOT DONE
-
->>>>>>> skeleton/lab2
 struct Builder {
     string: Option<String>,
     number: Option<usize>,
 }
 
-<<<<<<< HEAD
 impl Builder {
     // fn string(...
     fn string(&mut self, s: &str) -> &mut Self {
@@ -46,8 +40,6 @@ impl ToString for Builder {
     }
 }
 
-=======
->>>>>>> skeleton/lab2
 // Do not modify this function.
 #[test]
 fn builder() {
@@ -75,13 +67,7 @@ fn builder() {
 
     assert_eq!(b, "bye now! 200");
 
-<<<<<<< HEAD
     let c = Builder::default().string(&"heap!".to_owned()).to_string();
-=======
-    let c = Builder::default()
-        .string("heap!".to_owned())
-        .to_string();
->>>>>>> skeleton/lab2
 
     assert_eq!(c, "heap!");
 }

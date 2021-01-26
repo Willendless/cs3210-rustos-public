@@ -5,7 +5,6 @@
 #[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
 struct IntWrapper(isize);
 
-<<<<<<< HEAD
 // Implement a generic function here
 // fn max...
 fn max<T: PartialEq + PartialOrd>(a: T, b: T) -> T {
@@ -16,8 +15,6 @@ fn max<T: PartialEq + PartialOrd>(a: T, b: T) -> T {
     }
 }
 
-=======
->>>>>>> skeleton/lab2
 #[test]
 fn expressions() {
     assert_eq!(max(1usize, 3), 3);

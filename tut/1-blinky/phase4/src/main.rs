@@ -13,7 +13,7 @@ const GPIO_FSEL1: *mut u32 = (GPIO_BASE + 0x04) as *mut u32;
 const GPIO_SET0: *mut u32 = (GPIO_BASE + 0x1C) as *mut u32;
 const GPIO_CLR0: *mut u32 = (GPIO_BASE + 0x28) as *mut u32;
 
-#[inline(never)]
+#[inline(always)]
 fn spin_sleep_ms(ms: usize) {
     for _ in 0..(ms * 6000) {
         unsafe { asm!("nop" :::: "volatile"); }
@@ -21,7 +21,18 @@ fn spin_sleep_ms(ms: usize) {
 }
 
 unsafe fn kmain() -> ! {
+    let mut flag: bool = true;
     // FIXME: STEP 1: Set GPIO Pin 16 as output.
+    GPIO_FSEL1.write_volatile(1 << 18);
     // FIXME: STEP 2: Continuously set and clear GPIO 16.
-    loop {}
+    loop {
+        if flag {
+            GPIO_SET0.write_volatile(1 << 16);
+            flag = false;
+        } else {
+            GPIO_CLR0.write_volatile(1 << 16);
+            flag = true;
+        }
+        spin_sleep_ms(100);
+    }
 }

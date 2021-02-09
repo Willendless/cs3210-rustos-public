@@ -3,13 +3,15 @@ mod parsers;
 use serial;
 use structopt;
 use structopt_derive::StructOpt;
-use xmodem::Xmodem;
+use xmodem::{Progress, Xmodem};
 
+use std::io;
+use std::fs::File;
 use std::path::PathBuf;
 use std::time::Duration;
 
 use structopt::StructOpt;
-use serial::core::{CharSize, BaudRate, StopBits, FlowControl, SerialDevice, SerialPortSettings};
+use serial::core::{CharSize, BaudRate, StopBits, FlowControl, SerialDevice};
 
 use parsers::{parse_width, parse_stop_bits, parse_flow_control, parse_baud_rate};
 
@@ -47,11 +49,49 @@ struct Opt {
 }
 
 fn main() {
-    use std::fs::File;
-    use std::io::{self, BufReader};
+    use serial::core::SerialPortSettings;
 
     let opt = Opt::from_args();
     let mut port = serial::open(&opt.tty_path).expect("path points to invalid TTY");
 
     // FIXME: Implement the `ttywrite` utility.
+    let mut setting = port.read_settings().expect("failed to read initial ttysettings");
+    setting.set_baud_rate(opt.baud_rate).expect("failed to set baud rate");
+    setting.set_char_size(opt.char_width);
+    setting.set_stop_bits(opt.stop_bits);
+    setting.set_flow_control(opt.flow_control);
+    port.write_settings(&setting).expect("failed to write new tty settings");;
+    port.set_timeout(Duration::new(opt.timeout, 0)).expect("failed to set new timeout");
+
+    if opt.raw {
+        write_without_xmodem(&opt.input, &mut port).unwrap();
+    } else {
+        write_with_xmodem(&opt.input, &mut port).unwrap();
+    }
+
+}
+
+fn write_without_xmodem(input: &Option<PathBuf>, port: &mut serial::unix::TTYPort) -> io::Result<u64> {
+    match input {
+        Some(file_path) => io::copy(
+            &mut File::open(file_path).expect("failed to open input file"),
+            port
+        ),
+        None => io::copy(&mut io::stdin(), port),
+    }
+}
+
+fn write_with_xmodem(input: &Option<PathBuf>, port: &mut serial::unix::TTYPort) -> io::Result<usize> {
+    match input {
+        Some(file_path) => Xmodem::transmit_with_progress(
+            &File::open(file_path).expect("failed to open input file"),
+            port,
+            progress_fn
+        ),
+        None => Xmodem::transmit_with_progress(io::stdin(), port, progress_fn),
+    }
+}
+
+fn progress_fn(p: Progress) {
+    println!("Progress: {:?}", p);
 }

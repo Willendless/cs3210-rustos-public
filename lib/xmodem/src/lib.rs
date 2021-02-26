@@ -269,16 +269,12 @@ impl<T: io::Read + io::Write> Xmodem<T> {
         self.expect_byte_or_cancel(!packet_number, "failed to receive 1s complement of packet number")?;
         // Read packet
         for b in buf.iter_mut() {
-            if let Ok(read_byte) = self.read_byte(false) {
-                *b = read_byte;
-            } else {
-                *b = CAN;
-            }
+            *b = self.read_byte(false)?;
         }
         // calculate checksum
         let checksum = get_checksum(buf);
         // Expect packet checksum
-        let read_checksum = if let Ok(b) = self.read_byte(true) { b } else { CAN };
+        let read_checksum = self.read_byte(false)?;
         if read_checksum == checksum {
             self.write_byte(ACK)?;
             self.packet += 1;
@@ -346,7 +342,7 @@ impl<T: io::Read + io::Write> Xmodem<T> {
             // Send checksum
             self.write_byte(get_checksum(buf))?;
             // Expect receiver's return byte
-            let return_byte = self.read_byte(true)?;
+            let return_byte = self.read_byte(false)?;
             match return_byte {
                 ACK => {
                     (self.progress)(Progress::Packet(self.packet));

@@ -13,7 +13,7 @@ const GPIO_FSEL1: *mut u32 = (GPIO_BASE + 0x04) as *mut u32;
 const GPIO_SET0: *mut u32 = (GPIO_BASE + 0x1C) as *mut u32;
 const GPIO_CLR0: *mut u32 = (GPIO_BASE + 0x28) as *mut u32;
 
-#[inline(always)]
+#[inline(never)]
 fn spin_sleep_ms(ms: usize) {
     for _ in 0..(ms * 6000) {
         unsafe { asm!("nop" :::: "volatile"); }

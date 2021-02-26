@@ -1,6 +1,8 @@
 use stack_vec::StackVec;
 
 use crate::console::{kprint, kprintln, CONSOLE};
+use core::str;
+use pi::timer;
 
 /// Error type for `Command` parse failures.
 #[derive(Debug)]
@@ -37,12 +39,66 @@ impl<'a> Command<'a> {
 
     /// Returns this command's path. This is equivalent to the first argument.
     fn path(&self) -> &str {
-        unimplemented!()
+        self.args[0]
     }
 }
 
 /// Starts a shell using `prefix` as the prefix for each line. This function
 /// returns if the `exit` command is called.
 pub fn shell(prefix: &str) -> ! {
-    unimplemented!()
+    // Accept commands at most 512 bytes in length.
+    let mut line_buf = [0u8;512];
+    let mut line_buf = StackVec::new(&mut line_buf);
+    let backspace = str::from_utf8(&[8, b' ', 8]).unwrap();
+
+    // Wait for one second
+    timer::spin_sleep(Duration::from_millis(1000));
+    kprintln!("Welcome to EOS :)   by LJR");
+    loop {
+        // Accept at most 64 arguments per command.
+        let mut arg_buf = [""; 64];
+
+        // Clear input line buf.
+        line_buf.truncate(0);
+
+        // Prefix before user entering command.
+        kprint!("{}", prefix);
+
+        // Keep reading byte until meet "\n" or "\r"
+        // 1. Accept "\r" and "\n" as enter
+        // 2. Accept backspace and delete (8 and 127) to erase a byte
+        // 3. Ring the bell (7) for Unrecognized non-visible character
+        loop {
+            let byte = CONSOLE.lock().read_byte();
+            match byte {
+                32..=126 => {
+                    CONSOLE.lock().write_byte(byte);
+                    if let Err(_) = line_buf.push(byte) {
+                        break;
+                    }
+                },
+                8 | 127 => {
+                    if line_buf.len() > 0 {
+                        kprint!("{}", backspace);
+                        line_buf.truncate(line_buf.len() - 1);
+                    }
+                },
+                b'\n' | b'\r' => break,
+                _ => CONSOLE.lock().write_byte(7),
+            }
+        }
+        kprintln!();
+
+        let line = str::from_utf8(&line_buf).unwrap();
+        match Command::parse(line, &mut arg_buf) {
+            Ok(cmd) => {
+                match cmd.path() {
+                    "echo" => kprintln!("{}", line[cmd.args[0].len()..].trim_start()),
+                    _ => kprintln!("unknown command: {}", cmd.path()),
+                }
+            },
+            Err(Error::TooManyArgs) => kprintln!("error: too many arguments"),
+            Err(Error::Empty) => {},
+        }
+    }
 }

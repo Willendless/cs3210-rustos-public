@@ -3,6 +3,7 @@ use core::time::Duration;
 
 use shim::io;
 use shim::const_assert_size;
+use shim::ioerr;
 
 use volatile::prelude::*;
 use volatile::{Volatile, ReadVolatile, Reserved};
@@ -28,6 +29,27 @@ enum LsrStatus {
 #[allow(non_snake_case)]
 struct Registers {
     // FIXME: Declare the "MU" registers from page 8.
+    IO: Volatile<u8>,
+    __r0: [Reserved<u8>; 3],
+    IER: Volatile<u8>,
+    __r1: [Reserved<u8>; 3],
+    IIR: Volatile<u8>,
+    __r2: [Reserved<u8>; 3],
+    LCR: Volatile<u8>,
+    __r3: [Reserved<u8>; 3],
+    MCR: Volatile<u8>,
+    __r4: [Reserved<u8>; 3],
+    LSR: ReadVolatile<u8>,
+    __r5: [Reserved<u8>; 3],
+    MSR: ReadVolatile<u8>,
+    __r6: [Reserved<u8>; 3],
+    SCRATCH: Volatile<u8>,
+    __r7: [Reserved<u8>; 3],
+    CNTL: Volatile<u8>,
+    __r8: [Reserved<u8>; 3],
+    STAT: ReadVolatile<u32>,
+    BAUD: Volatile<u16>,
+    __r9: Reserved<u16>,
 }
 
 /// The Raspberry Pi's "mini UART".
@@ -52,25 +74,39 @@ impl MiniUart {
         };
 
         // FIXME: Implement remaining mini UART initialization.
-        unimplemented!()
+        // Set GPIO pins 14 and 15
+        Gpio::new(14).into_alt(Function::Alt5);
+        Gpio::new(15).into_alt(Function::Alt5);
+        // Set data size to 8 bits
+        registers.LCR.or_mask(0b11);
+        // Set BAUD rate to ~115200
+        registers.BAUD.write(270);
+        // Enable the UART trasmitter and receiver
+        registers.CNTL.or_mask(0b11);
+
+        MiniUart {
+            registers,
+            timeout: None,
+        }
     }
 
     /// Set the read timeout to `t` duration.
     pub fn set_read_timeout(&mut self, t: Duration) {
-        unimplemented!()
+        self.timeout = Some(t);
     }
 
     /// Write the byte `byte`. This method blocks until there is space available
     /// in the output FIFO.
     pub fn write_byte(&mut self, byte: u8) {
-        unimplemented!()
+        while self.registers.LSR.has_mask(LsrStatus::TxAvailable as u8) == false {}
+        self.registers.IO.write(byte);
     }
 
     /// Returns `true` if there is at least one byte ready to be read. If this
     /// method returns `true`, a subsequent call to `read_byte` is guaranteed to
     /// return immediately. This method does not block.
     pub fn has_byte(&self) -> bool {
-        unimplemented!()
+        self.registers.LSR.has_mask(LsrStatus::DataReady as u8)
     }
 
     /// Blocks until there is a byte ready to read. If a read timeout is set,
@@ -82,20 +118,46 @@ impl MiniUart {
     /// returns `Ok(())`, a subsequent call to `read_byte` is guaranteed to
     /// return immediately.
     pub fn wait_for_byte(&self) -> Result<(), ()> {
-        unimplemented!()
+        if let Some(timeout) = self.timeout {
+            let cur = timer::current_time();
+            let ddl = cur + timeout;
+            while self.has_byte() == false {
+                if timer::current_time() >= ddl {
+                    return Err(());
+                }
+            }
+            Ok(())
+        } else {
+            while self.has_byte() == false {}
+            Ok(())
+        }
     }
 
     /// Reads a byte. Blocks indefinitely until a byte is ready to be read.
     pub fn read_byte(&mut self) -> u8 {
-        unimplemented!()
+        while self.has_byte() == false {}
+        self.registers.IO.read()
     }
 }
 
 // FIXME: Implement `fmt::Write` for `MiniUart`. A b'\r' byte should be written
 // before writing any b'\n' byte.
 
+impl fmt::Write for MiniUart {
+    fn write_str(&mut self, s: &str) -> Result<(), fmt::Error> {
+        for ch in s.bytes() {
+            if ch == b'\n' {
+                self.write_byte(b'\r');
+            }
+            self.write_byte(ch);
+        }
+        Ok(())
+    }
+}
+
 mod uart_io {
     use super::io;
+    use super::ioerr;
     use super::MiniUart;
     use volatile::prelude::*;
 
@@ -108,4 +170,30 @@ mod uart_io {
     //
     // The `io::Write::write()` method must write all of the requested bytes
     // before returning.
+    impl io::Read for MiniUart {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            if let Err(()) = self.wait_for_byte() {
+                return ioerr!(TimedOut, "read from uart timedout");
+            }
+            let mut cnt = 0;
+            while self.has_byte() && cnt < buf.len() {
+                buf[cnt] = self.read_byte();
+                cnt += 1;
+            }
+            Ok(cnt)
+        }
+    }
+
+    impl io::Write for MiniUart {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            for ch in buf {
+                self.write_byte(*ch);
+            }
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
 }

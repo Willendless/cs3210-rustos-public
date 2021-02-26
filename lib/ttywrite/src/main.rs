@@ -64,9 +64,25 @@ fn main() {
     port.set_timeout(Duration::new(opt.timeout, 0)).expect("failed to set new timeout");
 
     if opt.raw {
-        write_without_xmodem(&opt.input, &mut port).unwrap();
+        loop {
+            if let Ok(len) = write_without_xmodem(&opt.input, &mut port) {
+                println!("wrote {} bytes to input", len);
+                break;
+            }
+        }
     } else {
-        write_with_xmodem(&opt.input, &mut port).unwrap();
+        loop {
+            let res = write_with_xmodem(&opt.input, &mut port);
+            match res {
+                Ok(len) => { 
+                    println!("wrote {} bytes to input", len);
+                    break;
+                },
+                Err(e) => {
+                    println!("Error: {:?}", e);
+                }
+            }
+        }
     }
 
 }

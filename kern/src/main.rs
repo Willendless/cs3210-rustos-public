@@ -4,27 +4,40 @@
 #![feature(asm)]
 #![feature(global_asm)]
 #![feature(optin_builtin_traits)]
+#![feature(raw_vec_internals)]
 #![cfg_attr(not(test), no_std)]
 #![cfg_attr(not(test), no_main)]
 
 #[cfg(not(test))]
 mod init;
 
+extern crate alloc;
+
+pub mod allocator;
 pub mod console;
+pub mod fs;
 pub mod mutex;
 pub mod shell;
 
 // use console::kprintln;
 
-// FIXME: You need to add dependencies here to
-// test your drivers (Phase 2). Add them as needed.
+use allocator::Allocator;
+use fs::FileSystem;
+
+#[cfg_attr(not(test), global_allocator)]
+pub static ALLOCATOR: Allocator = Allocator::uninitialized();
+pub static FILESYSTEM: FileSystem = FileSystem::uninitialized();
 
 use pi::timer;
 use pi::gpio;
 use core::time::Duration;
 
-unsafe fn kmain() -> ! {
-    // FIXME: Start the shell.
+fn kmain() -> ! {
+    unsafe {
+        ALLOCATOR.initialize();
+        FILESYSTEM.initialize();
+    }
+
     let led = gpio::Gpio::new(16);
     let mut led = led.into_output();
     led.set();

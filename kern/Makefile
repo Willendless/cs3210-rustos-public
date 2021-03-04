@@ -24,9 +24,6 @@ check:
 	@cargo xcheck
 
 qemu: build
-<<<<<<< HEAD
-	./qemu.sh build/$(KERN).bin
-=======
 	./qemu.sh build/$(KERN).bin -drive file=$(SDCARD),format=raw,if=sd $(QEMU_ARGS)
 
 qemu-gdb: build
@@ -34,7 +31,6 @@ qemu-gdb: build
 
 qemu-asm: build
 	./qemu.sh build/$(KERN).bin -drive file=$(SDCARD),format=raw,if=sd -d in_asm
->>>>>>> origin/lab3
 
 transmit: build
 	@echo "+ Transmitting build/$(KERN).bin to $(TTY_PATH)"

@@ -3,16 +3,21 @@ use shim::path::{Path, PathBuf};
 
 use stack_vec::StackVec;
 
+use pi::timer;
 use pi::atags::Atags;
 
 use fat32::traits::FileSystem;
 use fat32::traits::{Dir, Entry};
 
-use crate::console::{kprint, kprintln, CONSOLE};
 use core::str;
-use pi::timer;
+use core::time::Duration;
+use core::iter;
+
+use crate::console::{kprint, kprintln, CONSOLE};
 use crate::ALLOCATOR;
 use crate::FILESYSTEM;
+
+use alloc::vec::Vec;
 
 /// Error type for `Command` parse failures.
 #[derive(Debug)]
@@ -61,8 +66,6 @@ pub fn shell(prefix: &str) -> ! {
     let mut line_buf = StackVec::new(&mut line_buf);
     let backspace = str::from_utf8(&[8, b' ', 8]).unwrap();
 
-    // Wait for one second
-    timer::spin_sleep(Duration::from_millis(1000));
     kprintln!("Welcome to EOS :)   by LJR");
     loop {
         // Accept at most 64 arguments per command.
@@ -97,13 +100,25 @@ pub fn shell(prefix: &str) -> ! {
                 _ => CONSOLE.lock().write_byte(7),
             }
         }
-        kprintln!();
+        kprintln!("");
 
         let line = str::from_utf8(&line_buf).unwrap();
         match Command::parse(line, &mut arg_buf) {
             Ok(cmd) => {
                 match cmd.path() {
                     "echo" => kprintln!("{}", line[cmd.args[0].len()..].trim_start()),
+                    "print_atags" => {
+                        for atag in Atags::get() {
+                            kprintln!("{:#?}", atag);
+                        }
+                    },
+                    "test_bin_alloc" => {
+                        let mut v = Vec::new();
+                        for i in 0..50 {
+                            v.push(i);
+                            kprintln!("{:?}", v);
+                        }
+                    },
                     _ => kprintln!("unknown command: {}", cmd.path()),
                 }
             },

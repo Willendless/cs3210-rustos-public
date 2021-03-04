@@ -1,5 +1,6 @@
 mod align_util {
     use crate::allocator::util::{align_down, align_up};
+    use crate::console::kprintln;
 
     #[test]
     fn test_align_down() {
@@ -66,7 +67,7 @@ mod align_util {
     #[test]
     #[should_panic]
     fn test_panics_4() {
-        align_up(0xFFFF0000, 456);
+        kprintln!("{:#x}", align_up(0xFFFF0000, 456));
     }
 }
 
@@ -77,6 +78,7 @@ mod allocator {
     use core::alloc::Layout;
 
     use crate::allocator::{bin, bump, LocalAlloc};
+    use crate::console::kprintln;
 
     macro_rules! test_allocators {
         (@$kind:ident, $name:ident, $mem:expr, |$info:pat| $block:expr) => {

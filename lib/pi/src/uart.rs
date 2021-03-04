@@ -158,7 +158,7 @@ impl fmt::Write for MiniUart {
 
 mod uart_io {
     use super::io;
-    use super::ioerr;
+    use shim::ioerr;
     use super::MiniUart;
     use volatile::prelude::*;
 

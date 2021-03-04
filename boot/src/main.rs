@@ -12,7 +12,6 @@ use core::time::Duration;
 use core::slice;
 use pi::uart::MiniUart;
 use core::fmt;
-use core::fmt::Write;
 use shim::io;
 
 /// Start address of the binary to load and of the bootloader.

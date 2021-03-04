@@ -29,18 +29,18 @@ pub static ALLOCATOR: Allocator = Allocator::uninitialized();
 pub static FILESYSTEM: FileSystem = FileSystem::uninitialized();
 
 use pi::timer;
-use pi::gpio;
+use pi::gpio::Gpio;
 use core::time::Duration;
+use console::kprintln;
 
 fn kmain() -> ! {
-    unsafe {
-        ALLOCATOR.initialize();
-        FILESYSTEM.initialize();
-    }
-
-    let led = gpio::Gpio::new(16);
+    let led = Gpio::new(16);
     let mut led = led.into_output();
     led.set();
-    timer::spin_sleep(Duration::from_millis(1000));
+    timer::spin_sleep(Duration::from_millis(5000));
+    unsafe {
+        ALLOCATOR.initialize();
+    //     FILESYSTEM.initialize();
+    }
     shell::shell("> ")
 }

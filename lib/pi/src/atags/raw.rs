@@ -1,8 +1,8 @@
 /// A raw `ATAG` as laid out in memory.
 #[repr(C)]
 pub struct Atag {
-    pub dwords: u32,
-    pub tag: u32,
+    pub dwords: u32, // Size of the ATAG in 32-bit words
+    pub tag: u32,    // Type of the ATAG
     pub kind: Kind,
 }
 
@@ -20,7 +20,14 @@ impl Atag {
 
     /// FIXME: Returns the ATAG following `self`, if there is one.
     pub fn next(&self) -> Option<&Atag> {
-        unimplemented!()
+        if self.tag != Atag::NONE {
+            unsafe {
+                let nextptr = (self as *const Atag as *const u32).add(self.dwords as usize) as *const Atag;
+                Some(&*nextptr)
+            }
+        } else {
+            None
+        }
     }
 }
 

@@ -16,7 +16,10 @@ impl Allocator {
     /// starting at address `start` and ending at address `end`.
     #[allow(dead_code)]
     pub fn new(start: usize, end: usize) -> Allocator {
-        unimplemented!("bump allocator")
+        Allocator {
+            current: start,
+            end
+        }
     }
 }
 
@@ -43,7 +46,16 @@ impl LocalAlloc for Allocator {
     /// or `layout` does not meet this allocator's
     /// size or alignment constraints.
     unsafe fn alloc(&mut self, layout: Layout) -> *mut u8 {
-        unimplemented!("bump allocator")
+        let aligned_addr = align_up(self.current, layout.align());
+        if layout.size() <= 0
+            || layout.align() % 2 != 0 
+            || self.end.saturating_sub(aligned_addr) < layout.size() {
+            core::ptr::null_mut()
+        } else {
+            // Safe to use `+` since we have (self.end - aligned_addr >= layout.size())
+            self.current = aligned_addr + layout.size();
+            aligned_addr as *mut u8
+        }
     }
 
     /// Deallocates the memory referenced by `ptr`.

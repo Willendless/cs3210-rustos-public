@@ -11,11 +11,12 @@ authors = [
 edition = "2018"
 
 [dependencies]
-cfg-if = "0.1"
-core_io = { version = "0.1.20190701", package = "core_io", optional = true }
+cfg-if = "1.0"
+# core_io = { version = "0.1.20190701", package = "core_io", optional = true }
+core_io = { git = "https://github.com/Willendless/rust-core_io", package = "core_io", optional = true }
 
 [dev-dependencies]
-hashbrown = "0.6.3"
+hashbrown = "0.9.1"
 
 [features]
 no_std = ["core_io"]

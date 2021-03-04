@@ -277,7 +277,11 @@ impl<T: io::Read + io::Write> Xmodem<T> {
         let read_checksum = self.read_byte(false)?;
         if read_checksum == checksum {
             self.write_byte(ACK)?;
-            self.packet += 1;
+            if self.packet == 255 {
+                self.packet = 0;
+            } else {
+                self.packet += 1;
+            }
             (self.progress)(Progress::Packet(self.packet));
             return Ok(128);
         } else {
@@ -346,7 +350,11 @@ impl<T: io::Read + io::Write> Xmodem<T> {
             match return_byte {
                 ACK => {
                     (self.progress)(Progress::Packet(self.packet));
-                    self.packet += 1;
+                    if self.packet == 255 {
+                        self.packet = 0;
+                    } else {
+                        self.packet += 1;
+                    }
                     return Ok(buf.len());
                 },
                 NAK => return ioerr!(Interrupted, "checksum interrupted"),

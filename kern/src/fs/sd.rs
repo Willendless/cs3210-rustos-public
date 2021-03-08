@@ -1,6 +1,7 @@
 use core::time::Duration;
 use shim::io;
 use shim::ioerr;
+use pi::timer;
 
 use fat32::traits::BlockDevice;
 
@@ -31,6 +32,10 @@ extern "C" {
 
 // FIXME: Define a `#[no_mangle]` `wait_micros` function for use by `libsd`.
 // The `wait_micros` C signature is: `void wait_micros(unsigned int);`
+#[no_mangle]
+fn wait_micros(us: u32) {
+    timer::spin_sleep(Duration::from_micros(us as u64));
+}
 
 /// A handle to an SD card controller.
 #[derive(Debug)]
@@ -43,7 +48,12 @@ impl Sd {
     /// with atomic memory access, but we can't use it yet since we haven't
     /// written the memory management unit (MMU).
     pub unsafe fn new() -> Result<Sd, io::Error> {
-        unimplemented!("Sd::new()")
+        match sd_init() {
+            0 => Ok(Sd),
+            -1 => ioerr!(TimedOut, "Sd::new sd initialization timeout"),
+            -2 => ioerr!(BrokenPipe, "Sd::new error sending commands to sd controller"),
+            _ => panic!("Sd::new: code should not reach here"),
+        }
     }
 }
 
@@ -61,7 +71,20 @@ impl BlockDevice for Sd {
     ///
     /// An error of kind `Other` is returned for all other errors.
     fn read_sector(&mut self, n: u64, buf: &mut [u8]) -> io::Result<usize> {
-        unimplemented!("Sd::read_sector()")
+        if buf.len() < 512 || n > (core::i32::MAX as u64)
+            || buf as *mut [u8] as *mut u8 as usize & 0xF != 0 {
+            return ioerr!(InvalidInput, "Sd::read_sector: invalid input");
+        }
+        unsafe {
+            match sd_readsector(n as i32, buf as *mut [u8] as *mut u8) {
+                read_size if read_size > 0 => Ok(read_size as usize),
+                _ => match sd_err {
+                    -1 => ioerr!(TimedOut, "Sd::read_sector sector read timeout"),
+                    -2 => ioerr!(BrokenPipe, "Sd::read_sector error sending commands to sd controller"),
+                    _ => ioerr!(Other, "Sd::read_sector encountered undefined error code"),
+                }
+            }
+        }
     }
 
     fn write_sector(&mut self, _n: u64, _buf: &[u8]) -> io::Result<usize> {

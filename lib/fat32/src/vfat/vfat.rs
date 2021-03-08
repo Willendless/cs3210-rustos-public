@@ -63,8 +63,6 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
             return Err(Error::Io(newioerr!(NotFound, "failed to find FAT32 format partition")));
         }
 
-        eprintln!("{:#?}", master_boot_record);
-        eprintln!("{:#?}", bios_parameter_block);
         let fat_start_sector = bios_parameter_block.reserved_sectors_num as u64;
         let fat_num = bios_parameter_block.fat_num as u64;
         let sectors_per_fat = bios_parameter_block.sectors_per_fat_2;
@@ -150,12 +148,7 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
                 let fat_entry = self.fat_entry(cluster)?;
                 match &{fat_entry}.status() {
                     Status::Data(next_cluster) => cluster = *next_cluster,
-                    Status::Eoc(_) => {
-                        // eprintln!("read_cluster finished^^^^^^^, read_size: {};", buf_len - expected_read_size);
-                        // eprintln!("");
-                        // return Ok(buf_len - expected_read_size);
-                        return ioerr!(InvalidData, "read_cluster: reach end of cluster");
-                    },
+                    Status::Eoc(_) => return Ok(buf_len - expected_read_size),
                     Status::Bad => return ioerr!(InvalidData, "read_cluster: next cluster is bad"),
                     Status::Reserved => return ioerr!(InvalidData, "read_cluster: next cluster is reserved"),
                     Status::Free => return ioerr!(InvalidData, "read_cluster: next cluster is free"),
@@ -218,13 +211,8 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
         let sector = self.cluster_to_fat_entry_sector(cluster);
         // calc fat_entry index
         let index = self.cluster_to_fat_entry_sector_index(cluster);
-        // eprintln!("chluster: {} --------------> sector: {}, index: {}", cluster.cluster_id(), sector, index);
-        // eprintln!("vfat::read_fat_entry fat start sector {} cluster {} sector {}, index {}", self.fat_start_sector, cluster.cluster_id(), sector, index);
-        // eprintln!("vfat::read_fat_entry fat sector num {}", self.sectors_per_fat);
-
         // read corresponding sector of the fat entry
         let sector_ptr = self.device.get(sector)?;
-
         // cast &[u8] to &[FatEntry]
         let sector_ptr: &[FatEntry] = unsafe { SliceExt::cast(sector_ptr) };
         Ok(&sector_ptr[index as usize])

@@ -128,16 +128,12 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
         let buf_len = buf.len();
         let mut expected_read_size = buf_len;
 
-        eprintln!("vfat::read_cluster cluster: {}, cluster start sector {}, read start sector: {}, offset:{}>>>>>>>>>>>>", cluster.cluster_id(), self.cluster_to_sector(cluster), sector, offset);
-
         // first sector need special treatment
         let ptr = self.device.get(sector)?;
         let first_sector_max_read_size = (self.bytes_per_sector as usize) - offset;
         if first_sector_max_read_size >= expected_read_size {
             // only need to read part of first sector
             buf[..].clone_from_slice(&ptr[offset..offset + expected_read_size]);
-            eprintln!("read_cluster finished, read_size: {}^^^^^^^^;", expected_read_size);
-            eprintln!("");
             return Ok(expected_read_size)
         } else {
             buf[..first_sector_max_read_size].clone_from_slice(&ptr[offset..]);
@@ -148,7 +144,7 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
         sector += 1;
         let sector_len = self.bytes_per_sector as usize;
 
-        for sector_buf in buf[first_sector_max_read_size..].rchunks_mut(self.bytes_per_sector as usize) {
+        for sector_buf in buf[first_sector_max_read_size..].chunks_mut(self.bytes_per_sector as usize) {
             if sector - cluster_start_sector >= (self.sectors_per_cluster as u64) {
                 // zero sector left in this cluster, forward to next cluster
                 let fat_entry = self.fat_entry(cluster)?;
@@ -178,15 +174,12 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
                 // left place in buf cannot hold a whole sector
                 let ptr = self.device.get(sector)?;
                 sector_buf[..].clone_from_slice(&ptr[..expected_read_size]);
-                eprintln!("read finished at offset : {}", expected_read_size);
                 expected_read_size = 0;
                 break;
             }
             // read finish, proceed to next sector 
             sector += 1;
         }
-        eprintln!("read_cluster finished, read size: {}, cur sector: {}^^^^^^^;", buf_len - expected_read_size, sector);
-        eprintln!("");
         return Ok(buf_len - expected_read_size);
     }
 
@@ -225,7 +218,7 @@ impl<HANDLE: VFatHandle> VFat<HANDLE> {
         let sector = self.cluster_to_fat_entry_sector(cluster);
         // calc fat_entry index
         let index = self.cluster_to_fat_entry_sector_index(cluster);
-        eprintln!("chluster: {} --------------> sector: {}, index: {}", cluster.cluster_id(), sector, index);
+        // eprintln!("chluster: {} --------------> sector: {}, index: {}", cluster.cluster_id(), sector, index);
         // eprintln!("vfat::read_fat_entry fat start sector {} cluster {} sector {}, index {}", self.fat_start_sector, cluster.cluster_id(), sector, index);
         // eprintln!("vfat::read_fat_entry fat sector num {}", self.sectors_per_fat);
 

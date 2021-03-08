@@ -475,3 +475,92 @@ fn shuffle_test() {
     let hash = hash_files_recursive_from(vfat, "/");
     assert_hash_eq!("mock 1 file hashes", hash, hash_for!("files-1"));
 }
+
+
+#[test]
+fn cmp_test() {
+    cmp_files_recursive(vfat_from_resource!("mock3.fat32.img"), "/");
+}
+
+fn cmp_file<T: File>(mut file: T, len: usize) -> ::std::fmt::Result {
+    use crate::tests::rand::distributions::{Range, Sample};
+    use std::collections::hash_map::DefaultHasher;
+    use std::fmt::Write;
+    use std::hash::Hasher;
+    use shim::io::SeekFrom;
+
+    let mut rng = rand::thread_rng();
+    let mut range = Range::new(513, len);
+    let mut hasher = DefaultHasher::new();
+
+    if file.size() < len as u64 {
+        return Ok(());
+    }
+
+    // 1: read whole file
+    let mut writer1: Vec<u8> = vec![0; len];
+    let read_size1 = file.read(&mut writer1[..]).unwrap();
+    file.seek(SeekFrom::Start(0));
+
+    assert_eq!(
+        read_size1,
+        len,
+        "expected to read {} bytes (file size) but read {}",
+        len,
+        read_size1,
+    );
+
+    // 2: read part of the file twice
+    let mut writer2: Vec<u8> = vec![0; len];
+    let first_read = range.sample(&mut rng);
+    let a = file.read(&mut writer2[..first_read]).unwrap();
+    let b = file.read(&mut writer2[first_read..]).unwrap();
+
+    assert_eq!(
+        a + b,
+        len,
+        "expected to read {} bytes (file size) but read {}",
+        len,
+        a + b,
+    );
+
+    eprintln!("len1: {}, len2: {}", writer1.len(), writer2.len());
+    for i in 0..len {
+        if writer1[i] != writer2[i] {
+            println!("i: {} first_read: {} ============> whole-{}:part-{}", i, first_read, writer1[i], writer2[i]);
+        }
+        println!("{}:{}", writer1[i], writer2[i]);
+    }
+
+    Ok(())
+}
+
+fn cmp_files_recursive<P: AsRef<Path>>(
+    vfat: StdVFatHandle,
+    path: P,
+) -> ::std::fmt::Result {
+    let path = path.as_ref();
+    let mut entries = vfat
+        .open_dir(path)
+        .expect("directory")
+        .entries()
+        .expect("entries interator")
+        .collect::<Vec<_>>();
+
+    entries.sort_by(|a, b| a.name().cmp(b.name()));
+    for entry in entries {
+        let path = path.join(entry.name());
+        if entry.is_file() && !entry.name().starts_with(".BC.T") {
+            use std::fmt::Write;
+            let file = entry.into_file().unwrap();
+            if file.size() < (1 << 20) {
+                eprintln!("file name: {}, file size: {}", file.name, file.size);
+                cmp_file(file, 1025).expect("successful cmp");
+            }
+        } else if entry.is_dir() && entry.name() != "." && entry.name() != ".." {
+            cmp_files_recursive(vfat.clone(), path)?;
+        }
+    }
+
+    Ok(())
+}

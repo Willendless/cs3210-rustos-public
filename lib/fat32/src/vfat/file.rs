@@ -5,7 +5,6 @@ use shim::ioerr;
 
 use crate::traits;
 use crate::vfat::{Cluster, Metadata, VFatHandle};
-use crate::vfat::fat::Status;
 
 #[derive(Debug)]
 pub struct File<HANDLE: VFatHandle> {
@@ -78,7 +77,6 @@ impl<HANDLE: VFatHandle> io::Read for File<HANDLE> {
         // read from current pos of the file
         let read_result = self.vfat.lock(|vfat| {
             let max_read_size = ((self.size - self.pos).min(_buf.len() as u64)) as usize;
-            eprintln!("File::read name: {}, pos: {}, read_size: {}, buf size: {}, file size: {}", self.name, self.pos, max_read_size, _buf.len(), self.size);
             vfat.read_cluster(self.start_cluster, self.pos as usize, &mut _buf[..max_read_size])
         });
         if let Ok(read_size) = read_result {

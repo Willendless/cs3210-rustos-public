@@ -12,6 +12,8 @@ use fat32::vfat::{Dir, Entry, File, VFat, VFatHandle};
 use self::sd::Sd;
 use crate::mutex::Mutex;
 
+use crate::console::kprintln;
+
 #[derive(Clone)]
 pub struct PiVFatHandle(Rc<Mutex<VFat<Self>>>);
 
@@ -57,9 +59,38 @@ impl FileSystem {
     ///
     /// Panics if the underlying disk or file sytem failed to initialize.
     pub unsafe fn initialize(&self) {
-        unimplemented!("FileSystem::initialize()")
+        let sd = match Sd::new() {
+            Ok(sd) => sd,
+            Err(e) => {
+                kprintln!("FileSystem::initialize: failed to initialize sd controller");
+                kprintln!("Error: {:#?}", e);
+                return;
+            }
+        };
+        let vfat: PiVFatHandle = match VFat::from(sd) {
+            Ok(vfat) => vfat,
+            Err(e) => {
+                kprintln!("FileSystem::initialize: failed to get vfat handle");
+                kprintln!("{:#?}", e);
+                return;
+            }
+        };
+        *self.0.lock() = Some(vfat);
     }
 }
 
 // FIXME: Implement `fat32::traits::FileSystem` for `&FileSystem`
-// impl fat32::traits::FileSystem for &FileSystem {}
+impl fat32::traits::FileSystem for &FileSystem {
+    type File = fat32::vfat::File<PiVFatHandle>;
+    type Dir = fat32::vfat::Dir<PiVFatHandle>;
+    type Entry = fat32::vfat::Entry<PiVFatHandle>;
+
+    fn open<P: AsRef<Path>>(self, path: P) -> io::Result<Self::Entry> {
+        match *self.0.lock() {
+            Some(ref vfat) => {
+                vfat.open(path)
+            },
+            None => ioerr!(NotFound, "filesystem not initialized"),
+        }
+    }
+}

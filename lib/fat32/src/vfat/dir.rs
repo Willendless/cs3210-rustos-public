@@ -319,7 +319,5 @@ fn parse_str_from_byte(buf: &[u8]) -> String {
 
 #[inline(always)]
 fn get_u32_from_u16(hi: u16, lo: u16) -> u32 {
-    let res = ((hi as u32) << 16) | (lo as u32);
-    // eprintln!("hi: {}, lo: {}", hi, lo);
-    res
+    ((hi as u32) << 16) | (lo as u32)
 }

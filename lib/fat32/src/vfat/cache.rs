@@ -135,7 +135,6 @@ impl BlockDevice for CachedPartition {
     }
 
     fn read_sector(&mut self, sector: u64, buf: &mut [u8]) -> io::Result<usize> {
-        eprintln!("read_sector: {}", sector);
         let physical_sec_size = self.device.sector_size(); // max bytes read each time
         let read_size = buf.len(); // expected read size
         if let Some(start_physical_sec) = self.virtual_to_physical(sector) {

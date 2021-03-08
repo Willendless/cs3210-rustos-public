@@ -1,8 +1,6 @@
 use crate::vfat::*;
 use core::fmt;
 
-use self::Status::*;
-
 #[derive(Debug, PartialEq)]
 pub enum Status {
     /// The FAT entry corresponds to an unused (free) cluster.
@@ -25,7 +23,13 @@ pub struct FatEntry(pub u32);
 impl FatEntry {
     /// Returns the `Status` of the FAT entry `self`.
     pub fn status(&self) -> Status {
-        unimplemented!("FatEntry::status()")
+        match self.0 & (!(0xF << 28)) {
+            0 => Status::Free,
+            2..=0x0FFFFFEF => Status::Data(Cluster::from(self.0)),
+            0x0FFFFFF7 => Status::Bad,
+            0x0FFFFFF8..=0x0FFFFFFF => Status::Eoc(self.0),
+            _ => Status::Reserved,
+        }
     }
 }
 

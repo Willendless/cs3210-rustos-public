@@ -357,6 +357,7 @@ fn hash_files_recursive<P: AsRef<Path>>(
             let file = entry.into_file().unwrap();
             if file.size() < (1 << 20) {
                 write!(hash, "{}: ", path.display())?;
+                eprintln!("file name: {}, file size: {}", file.name, file.size);
                 hash_file(hash, file).expect("successful hash");
                 hash.push('\n');
             }

@@ -19,6 +19,9 @@ use crate::FILESYSTEM;
 
 use alloc::vec::Vec;
 
+use crate::fs::sd::Sd;
+use fat32::traits::BlockDevice;
+
 /// Error type for `Command` parse failures.
 #[derive(Debug)]
 enum Error {
@@ -65,6 +68,8 @@ pub fn shell(prefix: &str) -> ! {
     let mut line_buf = [0u8;512];
     let mut line_buf = StackVec::new(&mut line_buf);
     let backspace = str::from_utf8(&[8, b' ', 8]).unwrap();
+
+    let mut sd = unsafe { Sd::new().expect("sd controller initialization failed") };
 
     kprintln!("Welcome to EOS :)   by LJR");
     loop {
@@ -117,6 +122,13 @@ pub fn shell(prefix: &str) -> ! {
                         for i in 0..50 {
                             v.push(i);
                             kprintln!("{:?}", v);
+                        }
+                    },
+                    "test_read_mbr" => {
+                        let mut buf = [0u8; 512];
+                        match sd.read_sector(0, &mut buf) {
+                            Ok(_) => kprintln!("{:#?}", &buf[..]),
+                            Err(e) => kprintln!("Error: {:#?}", e),
                         }
                     },
                     _ => kprintln!("unknown command: {}", cmd.path()),

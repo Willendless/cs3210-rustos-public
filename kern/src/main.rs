@@ -23,6 +23,7 @@ pub mod shell;
 
 use allocator::Allocator;
 use fs::FileSystem;
+use fs::sd::Sd;
 
 #[cfg_attr(not(test), global_allocator)]
 pub static ALLOCATOR: Allocator = Allocator::uninitialized();
@@ -31,7 +32,6 @@ pub static FILESYSTEM: FileSystem = FileSystem::uninitialized();
 use pi::timer;
 use pi::gpio::Gpio;
 use core::time::Duration;
-use console::kprintln;
 
 fn kmain() -> ! {
     let led = Gpio::new(16);

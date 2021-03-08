@@ -357,7 +357,6 @@ fn hash_files_recursive<P: AsRef<Path>>(
             let file = entry.into_file().unwrap();
             if file.size() < (1 << 20) {
                 write!(hash, "{}: ", path.display())?;
-                eprintln!("file name: {}, file size: {}", file.name, file.size);
                 hash_file(hash, file).expect("successful hash");
                 hash.push('\n');
             }
@@ -479,19 +478,15 @@ fn shuffle_test() {
 
 #[test]
 fn cmp_test() {
-    cmp_files_recursive(vfat_from_resource!("mock3.fat32.img"), "/");
+    cmp_files_recursive(vfat_from_resource!("mock3.fat32.img"), "/").expect("cmp files failed");
 }
 
 fn cmp_file<T: File>(mut file: T, len: usize) -> ::std::fmt::Result {
     use crate::tests::rand::distributions::{Range, Sample};
-    use std::collections::hash_map::DefaultHasher;
-    use std::fmt::Write;
-    use std::hash::Hasher;
     use shim::io::SeekFrom;
 
     let mut rng = rand::thread_rng();
     let mut range = Range::new(513, len);
-    let mut hasher = DefaultHasher::new();
 
     if file.size() < len as u64 {
         return Ok(());
@@ -500,7 +495,7 @@ fn cmp_file<T: File>(mut file: T, len: usize) -> ::std::fmt::Result {
     // 1: read whole file
     let mut writer1: Vec<u8> = vec![0; len];
     let read_size1 = file.read(&mut writer1[..]).unwrap();
-    file.seek(SeekFrom::Start(0));
+    file.seek(SeekFrom::Start(0)).expect("faile seek failed");
 
     assert_eq!(
         read_size1,
@@ -524,10 +519,9 @@ fn cmp_file<T: File>(mut file: T, len: usize) -> ::std::fmt::Result {
         a + b,
     );
 
-    eprintln!("len1: {}, len2: {}", writer1.len(), writer2.len());
     for i in 0..len {
         if writer1[i] != writer2[i] {
-            println!("i: {} first_read: {} ============> whole-{}:part-{}", i, first_read, writer1[i], writer2[i]);
+            eprintln!("i: {} first_read: {} ============> whole-{}:part-{}", i, first_read, writer1[i], writer2[i]);
         }
         println!("{}:{}", writer1[i], writer2[i]);
     }
@@ -551,10 +545,8 @@ fn cmp_files_recursive<P: AsRef<Path>>(
     for entry in entries {
         let path = path.join(entry.name());
         if entry.is_file() && !entry.name().starts_with(".BC.T") {
-            use std::fmt::Write;
             let file = entry.into_file().unwrap();
             if file.size() < (1 << 20) {
-                eprintln!("file name: {}, file size: {}", file.name, file.size);
                 cmp_file(file, 1025).expect("successful cmp");
             }
         } else if entry.is_dir() && entry.name() != "." && entry.name() != ".." {

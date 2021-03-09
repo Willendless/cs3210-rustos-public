@@ -38,7 +38,7 @@ impl Allocator {
                     let layout = Layout::from_size_align(size, size).unwrap();
                     let addr = bump_allocator.alloc(layout);
                     if !addr.is_null() {
-                        kprintln!("new: assign {:#x} at:{:?}", size, addr);
+                        kprintln!("mem_allocator: assign {:#x}B mem at {:?}", size, addr);
                         bins[i].push(addr as *mut usize);
                     } else {
                         break;
@@ -46,11 +46,12 @@ impl Allocator {
                 }
             }
         }
-        Allocator {
+        let allocator = Allocator {
             bins,
             allocated: 0,
             total: end - start,
-        }
+        };
+        allocator
     }
 
     /// Return bins index based on size

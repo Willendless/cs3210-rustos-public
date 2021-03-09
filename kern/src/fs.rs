@@ -59,6 +59,7 @@ impl FileSystem {
     ///
     /// Panics if the underlying disk or file sytem failed to initialize.
     pub unsafe fn initialize(&self) {
+        kprintln!("filesystem: init");
         let sd = match Sd::new() {
             Ok(sd) => sd,
             Err(e) => {
@@ -67,6 +68,7 @@ impl FileSystem {
                 return;
             }
         };
+        kprintln!("filesystem: sd driver init succeed");
         let vfat: PiVFatHandle = match VFat::from(sd) {
             Ok(vfat) => vfat,
             Err(e) => {
@@ -75,7 +77,9 @@ impl FileSystem {
                 return;
             }
         };
+        kprintln!("filesystem: vfat init succeed");
         *self.0.lock() = Some(vfat);
+        kprintln!("filesystem: init succeed");
     }
 }
 

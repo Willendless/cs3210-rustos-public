@@ -43,8 +43,10 @@ impl Allocator {
     ///
     /// Panics if the system's memory map could not be retrieved.
     pub unsafe fn initialize(&self) {
+        kprintln!("mem_allocator: init");
         let (start, end) = memory_map().expect("failed to find memory map");
         *self.0.lock() = Some(AllocatorImpl::new(start, end));
+        kprintln!("mem_allocator: init succeed");
     }
 }
 

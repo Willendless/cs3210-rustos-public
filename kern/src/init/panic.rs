@@ -17,11 +17,7 @@ fn panic(_info: &PanicInfo) -> ! {
         kprintln!("failed to get location information...");
     }
 
-    if let Some(s) = _info.payload().downcast_ref::<&str>() {
-        kprintln!("Error: {}", s);
-    } else {
-        kprintln!("Error: no info");
-    }
+    kprintln!("Error: {:#?}", _info.payload().downcast_ref::<&str>());
 
     let led = Gpio::new(16);
     let mut led = led.into_output();

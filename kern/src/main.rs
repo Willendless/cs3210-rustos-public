@@ -19,7 +19,7 @@ pub mod fs;
 pub mod mutex;
 pub mod shell;
 
-// use console::kprintln;
+use console::kprintln;
 
 use allocator::Allocator;
 use fs::FileSystem;
@@ -34,13 +34,23 @@ use pi::gpio::Gpio;
 use core::time::Duration;
 
 fn kmain() -> ! {
+    led_light(16);
+    timer::spin_sleep(Duration::from_millis(5000));
+    welcome_output();
+    unsafe {
+        ALLOCATOR.initialize();
+        FILESYSTEM.initialize();
+    }
+    shell::shell("> ")
+}
+
+fn led_light(pin: u8) {
     let led = Gpio::new(16);
     let mut led = led.into_output();
     led.set();
-    timer::spin_sleep(Duration::from_millis(5000));
-    unsafe {
-        ALLOCATOR.initialize();
-    //     FILESYSTEM.initialize();
-    }
-    shell::shell("> ")
+}
+
+fn welcome_output() {
+    kprintln!("Welcome to EOS :) by LJR");
+    // TODO: output EOS
 }

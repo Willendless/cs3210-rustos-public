@@ -118,6 +118,7 @@ impl<HANDLE: VFatHandle> Dir<HANDLE> {
             name: "/".into(),
         }
     }
+
 }
 
 impl<HANDLE: VFatHandle> traits::Dir for Dir<HANDLE> {

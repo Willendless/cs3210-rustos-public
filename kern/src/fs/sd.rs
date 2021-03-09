@@ -2,6 +2,7 @@ use core::time::Duration;
 use shim::io;
 use shim::ioerr;
 use pi::timer;
+use crate::console::kprintln;
 
 use fat32::traits::BlockDevice;
 
@@ -34,7 +35,7 @@ extern "C" {
 // The `wait_micros` C signature is: `void wait_micros(unsigned int);`
 #[no_mangle]
 fn wait_micros(us: u32) {
-    timer::spin_sleep(Duration::from_micros(us as u64));
+    timer::spin_sleep(Duration::from_micros((us * 2) as u64));
 }
 
 /// A handle to an SD card controller.
@@ -48,11 +49,13 @@ impl Sd {
     /// with atomic memory access, but we can't use it yet since we haven't
     /// written the memory management unit (MMU).
     pub unsafe fn new() -> Result<Sd, io::Error> {
-        match sd_init() {
-            0 => Ok(Sd),
-            -1 => ioerr!(TimedOut, "Sd::new sd initialization timeout"),
-            -2 => ioerr!(BrokenPipe, "Sd::new error sending commands to sd controller"),
-            _ => panic!("Sd::new: code should not reach here"),
+        loop {
+            match sd_init() {
+                0 => return Ok(Sd),
+                -1 => kprintln!("{}", "Sd::new sd initialization timeout"),
+                -2 => kprintln!("{}", "Sd::new error sending commands to sd controller"),
+                _ => panic!("Sd::new: code should not reach here"),
+            }
         }
     }
 }
@@ -71,8 +74,8 @@ impl BlockDevice for Sd {
     ///
     /// An error of kind `Other` is returned for all other errors.
     fn read_sector(&mut self, n: u64, buf: &mut [u8]) -> io::Result<usize> {
-        if buf.len() < 512 || n > (core::i32::MAX as u64)
-            || buf as *mut [u8] as *mut u8 as usize & 0xF != 0 {
+        if buf.len() < 512 || n > (core::i32::MAX as u64) {
+            kprintln!("buf len:{}, n:{}", buf.len(), n);
             return ioerr!(InvalidInput, "Sd::read_sector: invalid input");
         }
         unsafe {

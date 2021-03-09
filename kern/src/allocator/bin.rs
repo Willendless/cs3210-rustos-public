@@ -2,10 +2,9 @@ use core::alloc::Layout;
 use core::fmt;
 use core::ptr;
 use core::mem;
-use crate::console::{kprintln, kprint};
+use crate::console::{kprintln};
 
 use crate::allocator::linked_list::LinkedList;
-use crate::allocator::util::*;
 use crate::allocator::LocalAlloc;
 
 use crate::allocator::bump;

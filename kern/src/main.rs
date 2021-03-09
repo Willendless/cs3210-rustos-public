@@ -23,7 +23,6 @@ use console::kprintln;
 
 use allocator::Allocator;
 use fs::FileSystem;
-use fs::sd::Sd;
 
 #[cfg_attr(not(test), global_allocator)]
 pub static ALLOCATOR: Allocator = Allocator::uninitialized();
@@ -45,7 +44,7 @@ fn kmain() -> ! {
 }
 
 fn led_light(pin: u8) {
-    let led = Gpio::new(16);
+    let led = Gpio::new(pin);
     let mut led = led.into_output();
     led.set();
 }

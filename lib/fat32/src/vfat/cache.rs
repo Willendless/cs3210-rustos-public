@@ -87,6 +87,7 @@ impl CachedPartition {
     /// # Errors
     ///
     /// Returns an error if there is an error reading the sector from the disk.
+    #[allow(dead_code)]
     pub fn get_mut(&mut self, sector: u64) -> io::Result<&mut [u8]> {
         if self.cache.contains_key(&sector) {
             let cache_entry = self.cache.get_mut(&sector).unwrap();

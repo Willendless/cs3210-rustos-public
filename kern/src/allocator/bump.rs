@@ -1,5 +1,4 @@
 use core::alloc::Layout;
-use core::ptr;
 
 use crate::allocator::util::*;
 use crate::allocator::LocalAlloc;

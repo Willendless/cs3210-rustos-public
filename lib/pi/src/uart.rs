@@ -160,7 +160,6 @@ mod uart_io {
     use super::io;
     use shim::ioerr;
     use super::MiniUart;
-    use volatile::prelude::*;
 
     // FIXME: Implement `io::Read` and `io::Write` for `MiniUart`.
     //

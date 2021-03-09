@@ -4,25 +4,17 @@ use shim::path::Component::*;
 
 use stack_vec::StackVec;
 
-use pi::timer;
 use pi::atags::Atags;
 
 use fat32::traits::FileSystem;
-use fat32::traits::BlockDevice;
-use fat32::traits::{Dir, Entry};
+use fat32::traits::Dir;
 
 use core::str;
-use core::time::Duration;
-use core::iter;
 
 use crate::console::{kprint, kprintln, CONSOLE};
-use crate::ALLOCATOR;
 use crate::FILESYSTEM;
 
 use alloc::vec::Vec;
-use alloc::string::String;
-
-use crate::fs::sd::Sd;
 
 /// Error type for `Command` parse failures.
 #[derive(Debug)]
@@ -287,7 +279,7 @@ fn parse_input_path<'a, 'b>(cwd: &'a PathBuf, path: &'b PathBuf) -> Result<PathB
         for component in dir.components() {
             match component {
                 ParentDir => { cwd_back.pop(); } ,
-                Normal(name) => cwd_back.push(component),
+                Normal(name) => cwd_back.push(name),
                 _ => return Err("sd: cd: parse failed, should not reach here"),
             };
         }

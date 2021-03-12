@@ -57,13 +57,14 @@ impl<'a> Command<'a> {
 
 /// Starts a shell using `prefix` as the prefix for each line. This function
 /// never returns.
-pub fn shell(prefix: &str) -> ! {
+pub fn shell(prefix: &str) {
     // Accept commands at most 512 bytes in length.
     let mut line_buf = [0u8;512];
     let mut line_buf = StackVec::new(&mut line_buf);
     let mut cwd = PathBuf::from("/");
+    let mut exit = false;
 
-    loop {
+    while !exit {
         // Clear input line buf.
         line_buf.truncate(0);
         // Prefix before user entering command.
@@ -74,7 +75,7 @@ pub fn shell(prefix: &str) -> ! {
         kprintln!("");
         // run command
         let cmd = str::from_utf8(&line_buf).unwrap();
-        parse_and_run(&mut cwd, cmd);
+        parse_and_run(&mut cwd, cmd, &mut exit);
     }
 }
 
@@ -105,7 +106,7 @@ fn read_command(buf: &mut StackVec<u8>) {
     }
 }
 
-fn parse_and_run(cwd: &mut PathBuf, line: &str) {
+fn parse_and_run(cwd: &mut PathBuf, line: &str, exit: &mut bool) {
     // Accept at most 64 arguments per command
     let mut arg_buf = [""; 64];
     // Parse command line
@@ -136,6 +137,7 @@ fn parse_and_run(cwd: &mut PathBuf, line: &str) {
         "cd" => cmd_cd(cwd, &cmd),
         "ls" => cmd_ls(cwd, &cmd),
         "cat" => cmd_cat(cwd, &cmd),
+        "exit" => *exit = true,
         _ => kprintln!("unknown command: {}", cmd.path()),
     }
 }

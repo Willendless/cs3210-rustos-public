@@ -156,6 +156,9 @@ defreg!(ESR_EL1, [
 
     ISS_HSVC_IMM [15-00], // An immediate value for HVC/SVC
     ISS_BRK_CMMT [15-00], // Comment
+
+    ISS_IDABORT_IFSC[05-00], // Instruction/Data Fault Status Code
+    ISS_IDABORT_LEVEL[01-00], // Insturction/Data Fault level
 ]);
 
 // (ref. D13.2.39 Fault Address Register)

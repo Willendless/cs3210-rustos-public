@@ -9,6 +9,9 @@ use pi::interrupt::{Controller, Interrupt};
 
 use self::syndrome::Syndrome;
 use self::syscall::handle_syscall;
+use crate::console::kprintln;
+
+use crate::shell;
 
 #[repr(u16)]
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -41,5 +44,25 @@ pub struct Info {
 /// the trap frame for the exception.
 #[no_mangle]
 pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
-    unimplemented!("handle_exception");
+    kprintln!("exception happened: {:#?}", info);
+
+    match info.kind {
+        Kind::Synchronous => {
+            use Syndrome::*;
+            
+            match Syndrome::from(esr) {
+                Brk(k) => {
+                    kprintln!("brk exception: {:#?}", k);
+                    shell::shell("debug > ");
+                    tf.elr_elx += 4;
+                },
+                other => {
+                    kprintln!("sync exception captured: {:#?}", other);
+                }
+            }
+        },
+        Kind::Irq => {},
+        Kind::Fiq => {},
+        Kind::SError => {},
+    }
 }

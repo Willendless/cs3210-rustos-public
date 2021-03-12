@@ -42,16 +42,22 @@ pub static IRQ: Irq = Irq::uninitialized();
 use pi::timer;
 use pi::gpio::Gpio;
 use core::time::Duration;
+use aarch64::*;
 
 fn kmain() -> ! {
     led_light(16);
     timer::spin_sleep(Duration::from_millis(5000));
-    welcome_output();
+    let current_el = unsafe { current_el() };
+    welcome_output(current_el);
     unsafe {
         ALLOCATOR.initialize();
         FILESYSTEM.initialize();
     }
-    shell::shell("> ")
+    brk!(1);
+    // svc!(2);
+    loop {
+        shell::shell("> ")
+    }
 }
 
 fn led_light(pin: u8) {
@@ -60,7 +66,8 @@ fn led_light(pin: u8) {
     led.set();
 }
 
-fn welcome_output() {
+fn welcome_output(current_el: u8) {
+    kprintln!("current exception level: EL{}", current_el);
     kprintln!("Welcome to EOS :) by LJR");
     // TODO: output EOS
 }

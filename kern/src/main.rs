@@ -45,18 +45,18 @@ use core::time::Duration;
 use aarch64::*;
 
 fn kmain() -> ! {
-    led_light(16);
-    timer::spin_sleep(Duration::from_millis(5000));
-    let current_el = unsafe { current_el() };
-    welcome_output(current_el);
+    // led_light(16);
+    // timer::spin_sleep(Duration::from_millis(5000));
+    // let current_el = unsafe { current_el() };
+    // welcome_output(current_el);
     unsafe {
         ALLOCATOR.initialize();
         FILESYSTEM.initialize();
     }
+    SCHEDULER.start();
     brk!(1);
-    // svc!(2);
     loop {
-        shell::shell("> ")
+        shell::shell(">1");
     }
 }
 

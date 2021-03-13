@@ -47,11 +47,9 @@ context_save:
     mrs x1, SPSR_EL1
     stp x0, x1, [SP, #-16]!
 
-    // move current stack pointer to x2 as the third argument
-    mov x2, SP
-
     // save caller regs: lr will be used after function call
-    stp lr, xzr, [SP, #-16]!
+    // do not save into stack
+    mov x28, lr
 
     // info: x0 <- x29
     mov x0, x29
@@ -59,10 +57,14 @@ context_save:
     // syndrome reg: x1 <- ESR_ELx
     mrs x1, ESR_EL1
 
+    // tf: x2 <- sp
+    mov x2, SP
+
     bl handle_exception
 
-    ldp lr, xzr, [SP], #16
-    ret
+    mov lr, x28
+
+    // directly fall through context_restore
 
 .global context_restore
 context_restore:
@@ -121,7 +123,6 @@ context_restore:
     movk    x29, \kind, LSL #16
     bl      context_save
     
-    bl      context_restore
     ldp     x28, x29, [SP], #16
     ldp     lr, xzr, [SP], #16
     eret

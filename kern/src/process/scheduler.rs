@@ -10,6 +10,8 @@ use crate::process::{Id, Process, State};
 use crate::traps::TrapFrame;
 use crate::VMM;
 
+use crate::console::kprintln;
+
 /// Process scheduler for the entire machine.
 #[derive(Debug)]
 pub struct GlobalScheduler(Mutex<Option<Scheduler>>);
@@ -66,7 +68,33 @@ impl GlobalScheduler {
     /// Starts executing processes in user space using timer interrupt based
     /// preemptive scheduling. This method should not return under normal conditions.
     pub fn start(&self) -> ! {
-        unimplemented!("GlobalScheduler::start()")
+        if let  Ok(mut new_process) = Process::new() {
+            new_process.state = State::Running;
+            // set trap frame
+            new_process.context.elr_elx = process_exe as *const() as u64;
+            // from el2 to el1 we use #0x3c5, here we use #0x360
+            // [9:8]: DA
+            // [7:6]: IF
+            // 0101: EL1h, 0: EL0t
+            new_process.context.spsr_elx = 0b11_0110_0000;
+            // set el0 to top of stack
+            new_process.context.sp_els = new_process.stack.top().as_u64();
+            new_process.context.tpidr_els = 0;
+            // first use trap frame to restore context
+            // then reset sp
+            // and clear x0
+            unsafe {
+                asm!("mov sp, $0
+                    bl context_restore
+                    ldp     x28, x29, [sp], #16
+                    ldp     lr, xzr, [sp], #16
+                    ldr x0, =_start
+                    mov sp, x0
+                    mov x0, xzr
+                    eret":: "r"(&*new_process.context):: "volatile")
+            }
+        }
+        panic!("failed to allocate memory for process")
     }
 
     /// Initializes the scheduler and add userspace processes to the Scheduler
@@ -90,6 +118,20 @@ impl GlobalScheduler {
     //
     //     page[0..24].copy_from_slice(text);
     // }
+}
+
+
+#[no_mangle]
+extern "C" fn process_exe() {
+    use crate::shell;
+    loop {
+        // unsafe { kprintln!("process_exe: EL{}", current_el()); } cannot call in el0
+        brk!(1);
+        brk!(2);
+        shell::shell("user0>");
+        brk!(3);
+        shell::shell("user1>")
+    }
 }
 
 #[derive(Debug)]
@@ -163,4 +205,3 @@ pub extern "C" fn  test_user_process() -> ! {
         }
     }
 }
-

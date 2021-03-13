@@ -42,6 +42,7 @@ pub static IRQ: Irq = Irq::uninitialized();
 use pi::timer;
 use pi::gpio::Gpio;
 use core::time::Duration;
+use pi::interrupt::Interrupt;
 use aarch64::*;
 
 fn kmain() -> ! {
@@ -52,11 +53,12 @@ fn kmain() -> ! {
     unsafe {
         ALLOCATOR.initialize();
         FILESYSTEM.initialize();
+        SCHEDULER.initialize();
     }
+    IRQ.initialize();
     SCHEDULER.start();
-    brk!(1);
     loop {
-        shell::shell(">1");
+
     }
 }
 

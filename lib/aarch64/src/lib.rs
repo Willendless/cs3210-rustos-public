@@ -33,6 +33,20 @@ pub fn sp_sel() -> u8 {
     }
 }
 
+#[inline(always)]
+pub fn tid_el0() -> u64 {
+    unsafe {
+        TPIDR_EL0.get()
+    }
+}
+
+#[inline(always)]
+pub fn tid_el1() -> u64 {
+    unsafe {
+        TPIDR_EL1.get()
+    }
+}
+
 /// Returns the core currently executing.
 ///
 /// # Safety

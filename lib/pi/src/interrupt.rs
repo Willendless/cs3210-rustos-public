@@ -77,6 +77,12 @@ impl From<usize> for Interrupt {
 #[allow(non_snake_case)]
 struct Registers {
     // FIXME: Fill me in.
+    irq_basic_pending: ReadVolatile<u32>,
+    irq_pending: [ReadVolatile<u32>; 2],
+    fiq_control: Volatile<u32>,
+    irq_enable: [Volatile<u32>; 2],
+    irq_disable: [Volatile<u32>; 2],
+    disable_basic_irq: Volatile<u32>,
 }
 
 /// An interrupt controller. Used to enable and disable interrupts as well as to
@@ -95,16 +101,26 @@ impl Controller {
 
     /// Enables the interrupt `int`.
     pub fn enable(&mut self, int: Interrupt) {
-        unimplemented!()
+        self.registers.irq_enable[Self::irq_reg(int)].write(Self::irq_mask(int))
     }
 
     /// Disables the interrupt `int`.
     pub fn disable(&mut self, int: Interrupt) {
-        unimplemented!()
+        self.registers.irq_disable[Self::irq_reg(int)].write(Self::irq_mask(int))
     }
 
     /// Returns `true` if `int` is pending. Otherwise, returns `false`.
     pub fn is_pending(&self, int: Interrupt) -> bool {
-        unimplemented!()
+        self.registers.irq_pending[Self::irq_reg(int)].read() & Self::irq_mask(int) != 0
+    }
+
+    #[inline(always)]
+    fn irq_reg(int: Interrupt) -> usize {
+        (int as usize) >> 5
+    }
+
+    #[inline(always)]
+    fn irq_mask(int: Interrupt) -> u32 {
+        1 << ((int as u32) & 0x1F)
     }
 }

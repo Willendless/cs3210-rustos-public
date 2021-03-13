@@ -228,3 +228,6 @@ defreg!(CNTHCTL_EL2, [
 ]);
 
 defreg!(CNTVOFF_EL2);
+
+defreg!(TPIDR_EL0);
+defreg!(TPIDR_EL1);

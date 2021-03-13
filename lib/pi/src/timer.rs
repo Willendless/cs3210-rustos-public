@@ -13,7 +13,7 @@ struct Registers {
     CS: Volatile<u32>,
     CLO: ReadVolatile<u32>,
     CHI: ReadVolatile<u32>,
-    COMPARE: [Volatile<u32>; 4],
+    COMPARE: Volatile<u32>,
 }
 
 /// The Raspberry Pi ARM system timer.
@@ -41,7 +41,9 @@ impl Timer {
     /// interrupts for timer 1 are enabled and IRQs are unmasked, then a timer
     /// interrupt will be issued in `t` duration.
     pub fn tick_in(&mut self, t: Duration) {
-        unimplemented!()
+        let end = t + current_time();
+        self.registers.CS.write(1);
+        self.registers.COMPARE.write(end.as_micros() as u32);
     }
 }
 
@@ -67,5 +69,5 @@ pub fn spin_sleep(t: Duration) {
 /// interrupts for timer 1 are enabled and IRQs are unmasked, then a timer
 /// interrupt will be issued in `t` duration.
 pub fn tick_in(t: Duration) {
-    unimplemented!()
+    Timer::new().tick_in(t);
 }

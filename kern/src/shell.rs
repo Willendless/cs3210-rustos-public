@@ -16,6 +16,8 @@ use crate::FILESYSTEM;
 
 use alloc::vec::Vec;
 
+use kernel_api::syscall;
+
 /// Error type for `Command` parse failures.
 #[derive(Debug)]
 enum Error {
@@ -137,6 +139,7 @@ fn parse_and_run(cwd: &mut PathBuf, line: &str, exit: &mut bool) {
         "cd" => cmd_cd(cwd, &cmd),
         "ls" => cmd_ls(cwd, &cmd),
         "cat" => cmd_cat(cwd, &cmd),
+        "sleep" => cmd_sleep(cwd, &cmd),
         "exit" => *exit = true,
         _ => kprintln!("unknown command: {}", cmd.path()),
     }
@@ -352,4 +355,26 @@ fn print_file(path: &PathBuf) -> io::Result<()> {
     }
 
     Ok(())
+}
+
+/// Sleep ms.
+///
+/// sleep <ms>
+///
+fn cmd_sleep(_cwd: &PathBuf, cmd: &Command) {
+    if cmd.args.len() > 2
+        || cmd.args.len() == 1 {
+        kprintln!("sh: sleep: wrong number of arguments");
+        return;
+    }
+
+    if let Ok(sleep_ms) = cmd.args[1].parse::<u64>() {
+        use core::time::Duration;
+        match syscall::sleep(Duration::from_millis(sleep_ms)) {
+            Ok(elapsed_time) => kprintln!("elapsed_time: {} ms", elapsed_time.as_millis()),
+            Err(e) => kprintln!("sh: sleep: error {:#?}", e),
+        }
+    } else {
+        kprintln!("sh: sleep: invalid argument");
+    }
 }

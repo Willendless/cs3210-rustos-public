@@ -13,7 +13,8 @@ use crate::VMM;
 use pi::interrupt::{Controller, Interrupt};
 use pi::timer;
 
-use crate::console::kprintln;
+use crate::console::{kprintln, kprint};
+
 /// Process scheduler for the entire machine.
 #[derive(Debug)]
 pub struct GlobalScheduler(Mutex<Option<Scheduler>>);
@@ -56,7 +57,7 @@ impl GlobalScheduler {
             if let Some(id) = rtn {
                 return id;
             }
-            aarch64::wfe();
+            // aarch64::wfe();
         }
     }
 
@@ -74,11 +75,10 @@ impl GlobalScheduler {
             // enable timer interrupt
             Controller::new().enable(Interrupt::Timer1);
             // set timer TICK match
-            timer::tick_in(TICK);
+            timer::tick_in(TICK * 3);
             // register trap handler function
             crate::IRQ.register(Interrupt::Timer1, Box::new(move |tf: &mut TrapFrame| {
-                timer::tick_in(TICK);
-                kprintln!("tick");
+                timer::tick_in(TICK * 3);
                 crate::SCHEDULER.switch(State::Ready, tf);
             }));
 
@@ -108,6 +108,7 @@ impl GlobalScheduler {
     pub unsafe fn initialize(&self) {
         *self.0.lock() = Some(Scheduler::new());
 
+        // init processes
         let init_func = [process_exe_0, process_exe_1, process_exe_2];
         for func in init_func.into_iter() {
             kprintln!("process *");
@@ -226,23 +227,20 @@ impl Scheduler {
     /// returns `false`. Otherwise, returns `true`.
     fn schedule_out(&mut self, new_state: State, tf: &mut TrapFrame) -> bool {
         let current_id = tid_el0();
-        if let Some((i, _)) = self.processes
-                                        .iter_mut()
-                                        .enumerate()
-                                        .filter(|(i, p)| p.context.tpidr_els == current_id)
-                                        .next() {
-            let mut cur_process = self.processes.remove(i).unwrap();
-            // store context
-            *cur_process.context = *tf;
-            // update process state
-            kprintln!("{} Ready", current_id);
-            cur_process.state = new_state;
-            // push into queue
-            self.processes.push_back(cur_process);
-            true
-        } else {
-            false
+        for (i, p) in self.processes.iter_mut().enumerate() {
+            if p.context.tpidr_els == current_id {
+                let mut cur_process = self.processes.remove(i).unwrap();
+                // store context
+                *cur_process.context = *tf;
+                // update process state
+                // kprintln!("shedule_out: {}", current_id);
+                cur_process.state = new_state;
+                // push into queue
+                self.processes.push_back(cur_process);
+                return true;
+            }
         }
+        false
     }
 
     /// Finds the next process to switch to, brings the next process to the
@@ -253,25 +251,21 @@ impl Scheduler {
     /// If there is no process to switch to, returns `None`. Otherwise, returns
     /// `Some` of the next process`s process ID.
     fn switch_to(&mut self, tf: &mut TrapFrame) -> Option<Id> {
-        if let Some((i, _)) = self.processes
-                                                .iter()
-                                                .enumerate()
-                                                .filter(|(_, p)| if let State::Ready = p.state { true } else { false } )
-                                                .next() {
-            let mut next_process = self.processes.remove(i).unwrap();
-            let pid = next_process.context.tpidr_els;
-            // restore context
-            *tf = *next_process.context;
-            // set execution state
-            next_process.state = State::Running;
-            // push into queue
-            self.processes.push_front(next_process);
-            kprintln!("scheduler::switch_to: {}: Running", pid);
-            Some(pid)
-        } else {
-            kprintln!("no one can be scheduled!!");
-            None
+        for (i, p) in self.processes.iter_mut().enumerate() {
+            if p.is_ready() {
+                let mut next_process = self.processes.remove(i).unwrap();
+                let pid = next_process.context.tpidr_els;
+                // restore context
+                *tf = *next_process.context;
+                // set execution state
+                next_process.state = State::Running;
+                // push into queue
+                self.processes.push_front(next_process);
+                // kprintln!("scheduler::switch_to: {}: Running", pid);
+                return Some(pid);
+            }
         }
+        None
     }
 
     /// Kills currently running process by scheduling out the current process

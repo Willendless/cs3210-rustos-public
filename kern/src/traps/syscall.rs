@@ -15,7 +15,23 @@ use kernel_api::*;
 /// parameter: the approximate true elapsed time from when `sleep` was called to
 /// when `sleep` returned.
 pub fn sys_sleep(ms: u32, tf: &mut TrapFrame) {
-    unimplemented!("sys_sleep()");
+    let current_time = pi::timer::current_time();
+    if let Some(awake_time) = current_time.checked_add(Duration::from_millis(ms.into())) {
+        let is_awake = Box::new(move |p: &mut crate::process::Process| {
+            if pi::timer::current_time() >= awake_time {
+                true
+            } else {
+                use crate::console::kprintln;
+                false
+            }
+        });
+        SCHEDULER.switch(State::Waiting(is_awake), tf);
+        tf.x[0] = (pi::timer::current_time() - current_time).as_millis() as u64;
+        tf.x[7] = 1;
+    } else {
+        // timer overflow
+        tf.x[7] = 0;
+    }
 }
 
 /// Returns current time.
@@ -58,5 +74,9 @@ pub fn sys_getpid(tf: &mut TrapFrame) {
 
 pub fn handle_syscall(num: u16, tf: &mut TrapFrame) {
     use crate::console::kprintln;
-    unimplemented!("handle_syscall()")
+    let num = num as usize;
+    match num {
+        NR_SLEEP => sys_sleep(tf.x[0] as u32, tf),
+        _ => {}
+    }
 }

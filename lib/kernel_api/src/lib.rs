@@ -74,6 +74,8 @@ impl core::convert::From<io::Error> for OsError {
     }
 }
 
+// system call number definition
+
 pub const NR_SLEEP: usize = 1;
 pub const NR_TIME: usize = 2;
 pub const NR_EXIT: usize = 3;

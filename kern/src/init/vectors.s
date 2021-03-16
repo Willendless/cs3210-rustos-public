@@ -46,6 +46,9 @@ context_save:
     mrs x0, ELR_EL1
     mrs x1, SPSR_EL1
     stp x0, x1, [SP, #-16]!
+    mrs x0, TTBR0_EL1
+    mrs x1, TTBR1_EL1
+    stp x0, x1, [SP, #-16]!
 
     // save caller regs: lr will be used after function call
     // do not save into stack
@@ -71,6 +74,16 @@ context_restore:
     // FIXME: Restore the context from the stack.
 
     // restore by backward order
+
+    ldp x0, x1, [SP], #16
+    msr TTBR0_EL1, x0
+    msr TTBR1_EL1, x1
+
+    // ensure memory accesses
+    dsb ishst
+    tlbi vmalle1
+    dsb ish
+    isb
 
     ldp x0, x1, [SP], #16
     msr ELR_EL1, x0

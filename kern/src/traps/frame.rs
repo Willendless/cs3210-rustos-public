@@ -5,6 +5,9 @@ use shim::const_assert_size;
 #[derive(Default, Copy, Clone, Debug)]
 pub struct TrapFrame {
     // FIXME: Fill me in.
+    pub ttbr0_el1: u64,
+    pub ttbr1_el1: u64,
+
     pub elr_elx: u64,
     pub spsr_elx: u64,
     pub sp_els: u64,
@@ -14,4 +17,4 @@ pub struct TrapFrame {
     pub xzr: u64, // for 16byte alignment purpose
 }
 
-const_assert_size!(TrapFrame, 800);
+const_assert_size!(TrapFrame, 816);

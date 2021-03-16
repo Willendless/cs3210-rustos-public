@@ -7,6 +7,8 @@ use crate::traps::TrapFrame;
 use crate::SCHEDULER;
 use kernel_api::*;
 
+use crate::console::kprintln;
+
 /// Sleep for `ms` milliseconds.
 ///
 /// This system call takes one parameter: the number of milliseconds to sleep.
@@ -19,16 +21,16 @@ pub fn sys_sleep(ms: u32, tf: &mut TrapFrame) {
     if let Some(awake_time) = current_time.checked_add(Duration::from_millis(ms.into())) {
         let is_awake = Box::new(move |p: &mut crate::process::Process| {
             if pi::timer::current_time() >= awake_time {
+                p.context.x[0] = (pi::timer::current_time() - current_time).as_millis() as u64;
+                p.context.x[7] = 1;
                 true
             } else {
-                use crate::console::kprintln;
                 false
             }
         });
         SCHEDULER.switch(State::Waiting(is_awake), tf);
-        tf.x[0] = (pi::timer::current_time() - current_time).as_millis() as u64;
-        tf.x[7] = 1;
     } else {
+        kprintln!("timer overflow");
         // timer overflow
         tf.x[7] = 0;
     }

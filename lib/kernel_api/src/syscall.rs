@@ -54,7 +54,6 @@ pub fn getpid() -> u64 {
     unimplemented!("getpid()");
 }
 
-
 struct Console;
 
 impl fmt::Write for Console {

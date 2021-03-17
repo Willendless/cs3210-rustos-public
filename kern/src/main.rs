@@ -45,17 +45,16 @@ use core::time::Duration;
 use pi::interrupt::Interrupt;
 use aarch64::*;
 
-fn kmain() -> ! {
+unsafe fn kmain() -> ! {
     // led_light(16);
     // timer::spin_sleep(Duration::from_millis(5000));
     // let current_el = unsafe { current_el() };
     // welcome_output(current_el);
-    unsafe {
-        ALLOCATOR.initialize();
-        FILESYSTEM.initialize();
-        SCHEDULER.initialize();
-    }
+    ALLOCATOR.initialize();
+    FILESYSTEM.initialize();
     IRQ.initialize();
+    VMM.initialize();
+    SCHEDULER.initialize();
     SCHEDULER.start();
     loop {
 

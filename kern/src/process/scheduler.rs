@@ -107,21 +107,34 @@ impl GlobalScheduler {
     /// Initializes the scheduler and add userspace processes to the Scheduler
     pub unsafe fn initialize(&self) {
         *self.0.lock() = Some(Scheduler::new());
+        kprintln!("scheduler:: initialize");
 
-        // init processes
+        // init 3 processes
         let init_func = [process_exe_0, process_exe_1, process_exe_2];
         for func in init_func.into_iter() {
             kprintln!("process *");
             let mut process = Process::new().unwrap();
             // set trap frame
-            process.context.elr_elx = *func as *const() as u64;
+
+            // process.context.elr_elx = *func as *const() as u64;
+            process.context.elr_elx = USER_IMG_BASE as u64;
+
+            // init page table base register
+            process.context.ttbr0_el1 = VMM.get_baddr().as_u64();
+            process.context.ttbr1_el1 = process.vmap.get_baddr().as_u64();
+
+            kprintln!("ttbr1_el1: {:#016x}", process.context.ttbr1_el1);
+
+            // init page table and code section
+            self.test_phase_3(&mut process);
+
             // from el2 to el1 we use #0x3c5, here we use #0x360
             // [9:8]: DA
             // [7:6]: IF unmask irq
             // 0101: EL1h, 0: EL0t
             process.context.spsr_elx = 0b11_0110_0000;
             // set el0 to top of stack
-            process.context.sp_els = process.stack.top().as_u64();
+            // process.context.sp_els = process.stack.top().as_u64();
             self.add(process);
         }
     }
@@ -130,18 +143,18 @@ impl GlobalScheduler {
     //
     // * A method to load a extern function to the user process's page table.
     //
-    // pub fn test_phase_3(&self, proc: &mut Process){
-    //     use crate::vm::{VirtualAddr, PagePerm};
-    //
-    //     let mut page = proc.vmap.alloc(
-    //         VirtualAddr::from(USER_IMG_BASE as u64), PagePerm::RWX);
-    //
-    //     let text = unsafe {
-    //         core::slice::from_raw_parts(test_user_process as *const u8, 24)
-    //     };
-    //
-    //     page[0..24].copy_from_slice(text);
-    // }
+    pub fn test_phase_3(&self, proc: &mut Process){
+        use crate::vm::{VirtualAddr, PagePerm};
+    
+        let mut page = proc.vmap.alloc(
+            VirtualAddr::from(USER_IMG_BASE as u64), PagePerm::RWX);
+    
+        let text = unsafe {
+            core::slice::from_raw_parts(test_user_process as *const u8, 24)
+        };
+    
+        page[0..24].copy_from_slice(text);
+    }
 }
 
 #[no_mangle]

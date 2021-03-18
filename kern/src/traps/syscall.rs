@@ -84,6 +84,9 @@ pub fn handle_syscall(num: u16, tf: &mut TrapFrame) {
     match num {
         NR_SLEEP => sys_sleep(tf.x[0] as u32, tf),
         NR_WRITE => sys_write(tf.x[0] as u8, tf),
+        NR_EXIT => sys_exit(tf),
+        NR_GETPID => sys_getpid(tf),
+        NR_TIME => sys_time(tf),
         _ => {}
     }
 }

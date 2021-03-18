@@ -39,19 +39,50 @@ pub fn sleep(span: Duration) -> OsResult<Duration> {
 }
 
 pub fn time() -> Duration {
-    unimplemented!("time()");
+    let mut time_secs: u64;
+    let mut subsec_nanos: u32;
+    unsafe {
+        asm!("svc $2
+              mov $0, x0
+              mov $1, x1"
+              : "=r"(time_secs), "=r"(subsec_nanos)
+              : "i"(NR_TIME)
+              : "x0", "x1"
+              : "volatile");
+    }
+    Duration::new(time_secs, subsec_nanos)
 }
 
 pub fn exit() -> ! {
-    unimplemented!("exit()");
+    unsafe {
+        asm!("svc $0"
+            :: "i"(NR_EXIT)
+            : "volatile");
+    }
+    unreachable!()
 }
 
 pub fn write(b: u8) {
-    unimplemented!("write()");
+    unsafe {
+        asm!("mov x0, $0
+              svc $1"
+            :: "r"(b), "i"(NR_WRITE)
+            : "x0"
+            : "volatile"); 
+    }
 }
 
 pub fn getpid() -> u64 {
-    unimplemented!("getpid()");
+    let mut pid: u64;
+    unsafe {
+        asm!("svc $1
+              mov $0, x0"
+            : "=r"(pid)
+            : "i"(NR_GETPID)
+            : "x0"
+            : "volatile");
+    }
+    pid
 }
 
 struct Console;

@@ -110,32 +110,33 @@ impl GlobalScheduler {
         kprintln!("scheduler:: initialize");
 
         // init 3 processes
-        let init_func = [process_exe_0, process_exe_1, process_exe_2];
-        for func in init_func.into_iter() {
-            kprintln!("process *");
-            let mut process = Process::new().unwrap();
-            // set trap frame
+        // let init_func = [process_exe_0, process_exe_1, process_exe_2];
+        // for func in init_func.into_iter() {
+        //     kprintln!("process *");
+        //     let mut process = Process::new().unwrap();
+        //     // set trap frame
 
-            // process.context.elr_elx = *func as *const() as u64;
-            process.context.elr_elx = USER_IMG_BASE as u64;
+        //     // process.context.elr_elx = *func as *const() as u64;
+        //     process.context.elr_elx = USER_IMG_BASE as u64;
 
-            // init page table base register
-            process.context.ttbr0_el1 = VMM.get_baddr().as_u64();
-            process.context.ttbr1_el1 = process.vmap.get_baddr().as_u64();
+        //     // init page table base register
+        //     process.context.ttbr0_el1 = VMM.get_baddr().as_u64();
+        //     process.context.ttbr1_el1 = process.vmap.get_baddr().as_u64();
 
-            kprintln!("ttbr1_el1: {:#016x}", process.context.ttbr1_el1);
+        //     // init page table and code section
+        //     self.test_phase_3(&mut process);
 
-            // init page table and code section
-            self.test_phase_3(&mut process);
-
-            // from el2 to el1 we use #0x3c5, here we use #0x360
-            // [9:8]: DA
-            // [7:6]: IF unmask irq
-            // 0101: EL1h, 0: EL0t
-            process.context.spsr_elx = 0b11_0110_0000;
-            // set el0 to top of stack
-            // process.context.sp_els = process.stack.top().as_u64();
-            self.add(process);
+        //     // from el2 to el1 we use #0x3c5, here we use #0x360
+        //     // [9:8]: DA
+        //     // [7:6]: IF unmask irq
+        //     // 0101: EL1h, 0: EL0t
+        //     process.context.spsr_elx = 0b11_0110_0000;
+        //     // set el0 to top of stack
+        //     // process.context.sp_els = process.stack.top().as_u64();
+        //     self.add(process);
+        // }
+        for _ in 0..4 {
+            self.add(Process::load("/fib").expect("succeed creating process"));
         }
     }
 
@@ -152,7 +153,7 @@ impl GlobalScheduler {
         let text = unsafe {
             core::slice::from_raw_parts(test_user_process as *const u8, 24)
         };
-    
+
         page[0..24].copy_from_slice(text);
     }
 }
@@ -248,8 +249,11 @@ impl Scheduler {
                 // update process state
                 // kprintln!("shedule_out: {}", current_id);
                 cur_process.state = new_state;
-                // push into queue
-                self.processes.push_back(cur_process);
+                match cur_process.state {
+                    State::Ready | State::Waiting(_) => self.processes.push_back(cur_process),
+                    State::Dead => {}
+                    State::Running => unreachable!(),
+                }
                 return true;
             }
         }

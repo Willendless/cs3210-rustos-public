@@ -25,6 +25,9 @@ impl<HANDLE: VFatHandle> traits::File for File<HANDLE> {
     fn size(&self) -> u64 {
         self.size
     }
+    fn is_end(&self) -> bool {
+        self.size == self.pos
+    }
 }
 
 impl<HANDLE: VFatHandle> io::Seek for File<HANDLE> {

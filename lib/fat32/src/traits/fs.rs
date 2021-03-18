@@ -9,6 +9,9 @@ pub trait File: io::Read + io::Write + io::Seek + Sized {
 
     /// Returns the size of the file in bytes.
     fn size(&self) -> u64;
+
+    /// Returns whether the file pos reach till the end of the file
+    fn is_end(&self) -> bool;
 }
 
 /// Trait implemented by directories in a file system.

@@ -55,10 +55,7 @@ unsafe fn kmain() -> ! {
     IRQ.initialize();
     VMM.initialize();
     SCHEDULER.initialize();
-    SCHEDULER.start();
-    loop {
-
-    }
+    SCHEDULER.start()
 }
 
 fn led_light(pin: u8) {

@@ -34,6 +34,9 @@ impl File for Dummy {
     fn size(&self) -> u64 {
         panic!("Dummy")
     }
+    fn is_end(&self) -> bool {
+        panic!("Dummy")
+    }
 }
 
 /// Trait implemented by directories in a file system.

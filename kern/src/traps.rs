@@ -9,7 +9,6 @@ use pi::interrupt::{Controller, Interrupt};
 
 use self::syndrome::Syndrome;
 use self::syscall::handle_syscall;
-use crate::console::kprintln;
 
 use crate::shell;
 
@@ -44,12 +43,18 @@ pub struct Info {
 /// the trap frame for the exception.
 #[no_mangle]
 pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
+    use aarch64::*;
+
     // kprintln!("exception happened: {:#?}", info);
+    // kprintln!("current sp: 0x{:x}", SP.get());
 
     match info.kind {
         Kind::Synchronous => {
             use Syndrome::*;
+            use aarch64::*;
+            use crate::console::kprintln;
             
+            kprintln!("sync exception captured in: 0x{:x}", unsafe { FAR_EL1.get() });
             match Syndrome::from(esr) {
                 Brk(k) => {
                     kprintln!("brk exception: {:#?}", k);
@@ -61,7 +66,7 @@ pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
                     handle_syscall(syscall_num, tf);
                 },
                 other => {
-                    kprintln!("sync exception captured: {:#?}", other);
+                    kprintln!("Currently unhandled sync exception: {:#?}", other);
                 }
             }
         },

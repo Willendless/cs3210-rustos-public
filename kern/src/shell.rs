@@ -13,10 +13,12 @@ use core::str;
 
 use crate::console::{kprint, kprintln, CONSOLE};
 use crate::FILESYSTEM;
+use crate::SCHEDULER;
 
 use alloc::vec::Vec;
 
 use kernel_api::syscall;
+use aarch64::*;
 
 /// Error type for `Command` parse failures.
 #[derive(Debug)]
@@ -140,6 +142,9 @@ fn parse_and_run(cwd: &mut PathBuf, line: &str, exit: &mut bool) {
         "ls" => cmd_ls(cwd, &cmd),
         "cat" => cmd_cat(cwd, &cmd),
         "sleep" => cmd_sleep(cwd, &cmd),
+        "name" => cmd_name(cwd),
+        "el" => cmd_el(cwd),
+        "sp" => cmd_sp(cwd),
         "exit" => *exit = true,
         _ => kprintln!("unknown command: {}", cmd.path()),
     }
@@ -377,4 +382,23 @@ fn cmd_sleep(_cwd: &PathBuf, cmd: &Command) {
     } else {
         kprintln!("sh: sleep: invalid argument");
     }
+}
+
+fn cmd_name(_cwd: &PathBuf) {
+    kprintln!("current process: {}", SCHEDULER.running_process_name());
+}
+
+fn cmd_el(_cwd: &PathBuf) {
+    let current_el = unsafe { current_el() };
+    kprintln!("current exception level: {}-{}",
+        current_el, 
+        match current_el {
+            0 => "user mode",
+            1 => "kernel mode",
+            _ => "unknown",
+        });
+}
+
+fn cmd_sp(_cwd: &PathBuf) {
+    kprintln!("current sp: 0x{:x}", SP.get());
 }

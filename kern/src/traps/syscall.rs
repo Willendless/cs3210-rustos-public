@@ -21,8 +21,8 @@ pub fn sys_sleep(ms: u32, tf: &mut TrapFrame) {
     if let Some(awake_time) = current_time.checked_add(Duration::from_millis(ms.into())) {
         let is_awake = Box::new(move |p: &mut crate::process::Process| {
             if pi::timer::current_time() >= awake_time {
-                p.context.x[0] = (pi::timer::current_time() - current_time).as_millis() as u64;
-                p.context.x[7] = 1;
+                p.trap_frame.x[0] = (pi::timer::current_time() - current_time).as_millis() as u64;
+                p.trap_frame.x[7] = 1;
                 true
             } else {
                 false
@@ -48,13 +48,14 @@ pub fn sys_time(tf: &mut TrapFrame) {
     let current_time = pi::timer::current_time();
     tf.x[0] = current_time.as_secs();
     tf.x[1] = current_time.subsec_nanos() as u64;
-    tf.x[7] = 0;
+    tf.x[7] = 1;
 }
 
 /// Kills current process.
 ///
 /// This system call does not take paramer and does not return any value.
 pub fn sys_exit(tf: &mut TrapFrame) {
+    kprintln!("call sys_exit");
     SCHEDULER.switch(State::Dead, tf);
 }
 
@@ -76,7 +77,50 @@ pub fn sys_write(b: u8, tf: &mut TrapFrame) {
 /// parameter: the current process's ID.
 pub fn sys_getpid(tf: &mut TrapFrame) {
     tf.x[0] = aarch64::tid_el0();
-    tf.x[7] = 0;
+    tf.x[7] = 1;
+}
+
+/// Fork current process. 
+///
+/// If success, current process will receive forked process's id
+/// and the forked process will receive 0.
+pub fn sys_fork(tf: &mut TrapFrame) {
+    kprintln!("call sys_fork");
+    match SCHEDULER.fork(tf) {
+        Ok(id) => {
+            tf.x[0] = id;
+            tf.x[7] = 1;
+        },
+        Err(errnum) => tf.x[7] = errnum as u64
+    }
+}
+
+/// Yield current CPU time interval.
+pub fn sys_yield(tf: &mut TrapFrame) {
+    SCHEDULER.switch(State::Ready, tf);
+}
+
+/// Returns a byte from CONSOLE.
+///
+/// This system call does not take parameter.
+///
+/// In addition to the usual status value, this system call returns a
+/// parameter: a byte from CONSOLE
+pub fn sys_read(tf: &mut TrapFrame) {
+    tf.x[0] = CONSOLE.lock().read_byte() as u64;
+    tf.x[7] = 1;
+}
+
+/// Return current process's working directory.
+///
+/// This system call need two parameters: buf addr: VirtualAddr and size: usize
+///
+pub fn sys_getcwd(vaddr: u64, size: usize, tf: &mut TrapFrame) {
+    // TODO: check virtualaddr
+    kprintln!("getcwd: 0x{:x}, size: {}", vaddr, size);
+    SCHEDULER.getcwd(vaddr, size);
+    // TODO: adjust return value
+    tf.x[7] = 1;
 }
 
 pub fn handle_syscall(num: u16, tf: &mut TrapFrame) {
@@ -87,6 +131,10 @@ pub fn handle_syscall(num: u16, tf: &mut TrapFrame) {
         NR_EXIT => sys_exit(tf),
         NR_GETPID => sys_getpid(tf),
         NR_TIME => sys_time(tf),
+        NR_FORK => sys_fork(tf),
+        NR_YIELD => sys_yield(tf),
+        NR_READ => sys_read(tf),
+        NR_GETCWD => sys_getcwd(tf.x[0], tf.x[1] as usize, tf),
         _ => {}
     }
 }

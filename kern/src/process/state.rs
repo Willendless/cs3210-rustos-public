@@ -13,6 +13,8 @@ pub type EventPollFn = Box<dyn FnMut(&mut Process) -> bool + Send>;
 
 /// The scheduling state of a process.
 pub enum State {
+    /// The process is just created.
+    Start,
     /// The process is ready to be scheduled.
     Ready,
     /// The process is waiting on an event to occur before it can be scheduled.
@@ -26,6 +28,7 @@ pub enum State {
 impl fmt::Debug for State {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            State::Start => write!(f, "State::Start"),
             State::Ready => write!(f, "State::Ready"),
             State::Running => write!(f, "State::Running"),
             State::Waiting(_) => write!(f, "State::Waiting"),

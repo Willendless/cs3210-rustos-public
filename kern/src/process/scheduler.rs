@@ -1,12 +1,14 @@
 use alloc::boxed::Box;
 use alloc::collections::vec_deque::VecDeque;
+use alloc::string::String;
 use core::fmt;
 
 use aarch64::*;
+use kernel_api::{OsError, OsResult};
 
 use crate::mutex::Mutex;
 use crate::param::{PAGE_MASK, PAGE_SIZE, TICK, USER_IMG_BASE};
-use crate::process::{Id, Process, State};
+use crate::process::{Id, Process, State, Context};
 use crate::traps::TrapFrame;
 use crate::traps::irq::IrqHandler;
 use crate::VMM;
@@ -46,142 +48,105 @@ impl GlobalScheduler {
     /// process to `new_state`, saving `tf` into the current process, and
     /// restoring the next process's trap frame into `tf`. For more details, see
     /// the documentation on `Scheduler::schedule_out()` and `Scheduler::switch_to()`.
-    pub fn switch(&self, new_state: State, tf: &mut TrapFrame) -> Id {
+    pub fn switch(&self, new_state: State, tf: &mut TrapFrame) {
         self.critical(|scheduler| scheduler.schedule_out(new_state, tf));
-        self.switch_to(tf)
     }
 
-    pub fn switch_to(&self, tf: &mut TrapFrame) -> Id {
+    /// loop for scheduler kernel thread
+    /// This function should be called after the initialization
+    /// of the first use process, so that the system can bootstrap
+    /// process abstraction
+    pub fn switch_to(&self) -> ! {
         loop {
-            let rtn = self.critical(|scheduler| scheduler.switch_to(tf));
-            if let Some(id) = rtn {
-                return id;
+            let rtn = self.critical(|scheduler| scheduler.switch_to());
+
+            if let Some(prev_id) = rtn {
+                // maybe do some bookkeeping here
+
+                // ex: clean dead process mem
+                continue;
+            } else {
+                aarch64::wfe();
             }
-            aarch64::wfe();
         }
     }
 
     /// Kills currently running process and returns that process's ID.
     /// For more details, see the documentaion on `Scheduler::kill()`.
     #[must_use]
-    pub fn kill(&self, tf: &mut TrapFrame) -> Option<Id> {
+    pub fn kill(&self, tf: &mut TrapFrame) -> ! {
         self.critical(|scheduler| scheduler.kill(tf))
+    }
+
+    pub fn running_process_name(&self) -> String {
+        self.critical(|scheduler| scheduler.running_thread_name())
+    }
+
+    pub fn running_process_tf(&self) -> usize {
+        self.critical(|scheduler| {
+            &(*scheduler.processes[scheduler.running_thread()].trap_frame) as *const TrapFrame as usize
+        })
+    }
+
+    // TODO: refactor it
+    pub fn running_process_sp(&self) -> u64 {
+        self.critical(|scheduler| {
+            scheduler.processes[scheduler.running_thread()].stack.top().as_u64()
+        })
+    }
+
+    // TODO: refoctor it
+    pub fn running_process_tf_debug(&self) -> TrapFrame {
+        self.critical(|scheduler| {
+            *scheduler.processes[scheduler.running_thread()].trap_frame
+        })
+    }
+
+    // TODO: refactor it to check validitiy of buf
+    pub fn getcwd(&self, buf: u64, size: usize) {
+        self.critical(|scheduler| {
+            let i = scheduler.running_thread();
+            let p = &scheduler.processes[i];
+            let wd = p.cwd.to_str().unwrap();
+            p.write_vbuf(wd, buf.into(), wd.len().min(size));
+        })
     }
 
     /// Starts executing processes in user space using timer interrupt based
     /// preemptive scheduling. This method should not return under normal conditions.
     pub fn start(&self) -> ! {
-        if let Ok(mut first_process) = Process::new() {
-            // enable timer interrupt
-            Controller::new().enable(Interrupt::Timer1);
-            // set timer TICK match
+        // enable timer interrupt
+        Controller::new().enable(Interrupt::Timer1);
+        // set timer TICK match
+        timer::tick_in(TICK * 3);
+        // register trap handler function
+        crate::IRQ.register(Interrupt::Timer1, Box::new(move |tf: &mut TrapFrame| {
             timer::tick_in(TICK * 3);
-            // register trap handler function
-            crate::IRQ.register(Interrupt::Timer1, Box::new(move |tf: &mut TrapFrame| {
-                timer::tick_in(TICK * 3);
-                crate::SCHEDULER.switch(State::Ready, tf);
-            }));
+            crate::SCHEDULER.switch(State::Ready, tf);
+        }));
 
-            // faking trap frame
-            let mut tf: TrapFrame = Default::default();
-            self.switch_to(&mut tf);
+        self.init_user_process()
+    }
 
-            // first use trap frame restore context
-            // if not reset x28,29,30, exactly 6 instructions
-            // then reset sp
-            // and clear x0
-            unsafe {
-                asm!("mov sp, $0
-                    bl context_restore
-                    ldp     x28, x29, [sp], #16
-                    ldp     lr, xzr, [sp], #16
-                    ldr x0, =_start
-                    mov sp, x0
-                    mov x0, xzr
-                    eret":: "r"(&tf):: "volatile");
-            }
+    /// Set up first user process
+    fn init_user_process(&self) -> !{
+        // for _ in 0..4 {
+        //     self.add(Process::load("/fib").expect("succeed creating process"));
+        // }
+        for _ in 0..1 {
+            self.add(Process::load("/shell").expect("succeed creating process"));
         }
-        panic!("failed to allocate memory for process")
+        self.switch_to()
     }
 
     /// Initializes the scheduler and add userspace processes to the Scheduler
     pub unsafe fn initialize(&self) {
         *self.0.lock() = Some(Scheduler::new());
         kprintln!("scheduler:: initialize");
-
-        // init 3 processes
-        // let init_func = [process_exe_0, process_exe_1, process_exe_2];
-        // for func in init_func.into_iter() {
-        //     kprintln!("process *");
-        //     let mut process = Process::new().unwrap();
-        //     // set trap frame
-
-        //     // process.context.elr_elx = *func as *const() as u64;
-        //     process.context.elr_elx = USER_IMG_BASE as u64;
-
-        //     // init page table base register
-        //     process.context.ttbr0_el1 = VMM.get_baddr().as_u64();
-        //     process.context.ttbr1_el1 = process.vmap.get_baddr().as_u64();
-
-        //     // init page table and code section
-        //     self.test_phase_3(&mut process);
-
-        //     // from el2 to el1 we use #0x3c5, here we use #0x360
-        //     // [9:8]: DA
-        //     // [7:6]: IF unmask irq
-        //     // 0101: EL1h, 0: EL0t
-        //     process.context.spsr_elx = 0b11_0110_0000;
-        //     // set el0 to top of stack
-        //     // process.context.sp_els = process.stack.top().as_u64();
-        //     self.add(process);
-        // }
-        for _ in 0..4 {
-            self.add(Process::load("/fib").expect("succeed creating process"));
-        }
     }
 
-    // The following method may be useful for testing Phase 3:
-    //
-    // * A method to load a extern function to the user process's page table.
-    //
-    pub fn test_phase_3(&self, proc: &mut Process){
-        use crate::vm::{VirtualAddr, PagePerm};
-    
-        let mut page = proc.vmap.alloc(
-            VirtualAddr::from(USER_IMG_BASE as u64), PagePerm::RWX);
-    
-        let text = unsafe {
-            core::slice::from_raw_parts(test_user_process as *const u8, 24)
-        };
-
-        page[0..24].copy_from_slice(text);
-    }
-}
-
-#[no_mangle]
-extern "C" fn process_exe_0() {
-    use crate::shell;
-    loop {
-        // unsafe { kprintln!("process_exe: EL{}", current_el()); } cannot call in el0
-        shell::shell("process0> ");
-    }
-}
-
-#[no_mangle]
-extern "C" fn process_exe_1() {
-    use crate::shell;
-    loop {
-        // unsafe { kprintln!("process_exe: EL{}", current_el()); } cannot call in el0
-        shell::shell("process1> ");
-    }
-}
-
-#[no_mangle]
-extern "C" fn process_exe_2() {
-    use crate::shell;
-    loop {
-        // unsafe { kprintln!("process_exe: EL{}", current_el()); } cannot call in el0
-        shell::shell("process2> ");
+    pub fn fork(&self, tf: &TrapFrame) -> OsResult<Id> {
+        self.critical(|scheduler| scheduler.fork(tf))
     }
 }
 
@@ -189,6 +154,7 @@ extern "C" fn process_exe_2() {
 pub struct Scheduler {
     processes: VecDeque<Process>,
     last_id: Option<Id>,
+    context: Box<Context>,
 }
 
 impl Scheduler {
@@ -196,7 +162,8 @@ impl Scheduler {
     fn new() -> Scheduler {
         Scheduler {
             processes: VecDeque::new(),
-            last_id: None
+            last_id: None,
+            context: Box::new(Default::default()),
         }
     }
 
@@ -208,28 +175,28 @@ impl Scheduler {
     /// It is the caller's responsibility to ensure that the first time `switch`
     /// is called, that process is executing on the CPU.
     fn add(&mut self, mut process: Process) -> Option<Id> {
+        let new_id: u64;
         // set process id
         if let Some(id) = self.last_id {
             if let Some(res) = id.checked_add(1) {
                 self.last_id = Some(res);
-                process.context.tpidr_els = res;
+                process.trap_frame.tpidr_els = res;
+                process.pid = res;
             } else {
                 // process id overflow, release it?
                 panic!("process id overflow");
             }
         } else {
-            process.context.tpidr_els = 0;
+            process.trap_frame.tpidr_els = 0;
+            process.pid = 0;
             self.last_id = Some(0);
         }
+        kprintln!("add process {}", process.pid);
         // set process state
         process.state = State::Ready;
+        new_id = process.pid;
         self.processes.push_back(process);
-        for  p in self.processes.iter_mut() {
-            if p.is_ready() {
-                return Some(p.context.tpidr_els as Id);
-            }
-        }
-        None
+        Some(new_id)
     }
 
     /// Finds the currently running process, sets the current process's state
@@ -239,25 +206,51 @@ impl Scheduler {
     ///
     /// If the `processes` queue is empty or there is no current process,
     /// returns `false`. Otherwise, returns `true`.
-    fn schedule_out(&mut self, new_state: State, tf: &mut TrapFrame) -> bool {
-        let current_id = tid_el0();
-        for (i, p) in self.processes.iter_mut().enumerate() {
-            if p.context.tpidr_els == current_id {
-                let mut cur_process = self.processes.remove(i).unwrap();
-                // store context
-                *cur_process.context = *tf;
-                // update process state
-                // kprintln!("shedule_out: {}", current_id);
-                cur_process.state = new_state;
-                match cur_process.state {
-                    State::Ready | State::Waiting(_) => self.processes.push_back(cur_process),
-                    State::Dead => {}
-                    State::Running => unreachable!(),
+    fn schedule_out(&mut self, new_state: State, tf: &mut TrapFrame) {
+        let thread_context_ptr: u64;
+        let index = self.running_thread();
+        let mut cur_thread = &mut self.processes[index];
+
+        // TODO(store trap frame): consider remove redundant trap frame
+        *cur_thread.trap_frame = *tf;
+
+        cur_thread.state = new_state;
+        thread_context_ptr = &(*cur_thread.context) as *const Context as u64;
+
+        match cur_thread.state {
+            State::Ready | State::Waiting(_) => {
+                let running_process = self.processes.remove(index).unwrap();
+                // kprintln!("prev: {:#?}", running_process.context);
+                kprintln!("process {} schedule out", running_process.pid);
+                self.processes.push_back(running_process);
+            },
+            State::Dead => {
+                // reclaim id
+                let id = cur_thread.pid;
+                if self.last_id.unwrap() == id {
+                    self.last_id = id.checked_sub(1);
                 }
-                return true;
+                kprintln!("thread {} dead", id);
+                // core::mem::drop(cur_thread);
+                // remove from process queue
+                // self.processes.remove(self.running_thread()).unwrap();
+                kprintln!("remove ok");
             }
+            State::Start | State::Running => unreachable!(),
         }
-        false
+        // comsume left time section
+        timer::tick_in(TICK * 3);
+
+        unsafe {
+            asm!("mov x0, $0
+                mov x1, $1
+                bl switch_threads"
+                ::"r"(thread_context_ptr), "r"(&(*self.context))
+                :"x0", "x1", "x2"
+                : "volatile");
+        }
+
+        // Waiting and Ready state thread may return back here
     }
 
     /// Finds the next process to switch to, brings the next process to the
@@ -267,42 +260,93 @@ impl Scheduler {
     ///
     /// If there is no process to switch to, returns `None`. Otherwise, returns
     /// `Some` of the next process`s process ID.
-    fn switch_to(&mut self, tf: &mut TrapFrame) -> Option<Id> {
+    fn switch_to(&mut self) -> Option<Id> {
         for (i, p) in self.processes.iter_mut().enumerate() {
             if p.is_ready() {
+                let thread_context_ptr: u64;
                 let mut next_process = self.processes.remove(i).unwrap();
-                let pid = next_process.context.tpidr_els;
+                let pid = next_process.pid;
                 // restore context
-                *tf = *next_process.context;
+                // *tf = *next_process.trap_frame;
                 // set execution state
                 next_process.state = State::Running;
+
+                let thread_context = &(*next_process.context) as *const Context as u64;
+                // kprintln!("{:#?}", next_process);
                 // push into queue
+                // kprintln!("next:{:#?}", next_process.context);
                 self.processes.push_front(next_process);
-                // kprintln!("scheduler::switch_to: {}: Running", pid);
+
+                kprintln!("swtch to {} process", pid);
+                // switch from scheduler to kernel thread
+                unsafe {
+                    asm!("mov x0, $0
+                        mov x1, $1
+                        bl switch_threads"
+                        :: "r"(&(*self.context)), "r"(thread_context)
+                        : "x0", "x1", "x2"
+                        : "volatile");
+                }
+                
                 return Some(pid);
             }
         }
         None
     }
 
+    fn running_thread_name(&self) -> String {
+        self.processes[self.running_thread()].name.clone()
+    }
+
+    /// TODO: This func may not work when change to multiprocessor arch
+    fn running_thread(&self) -> usize {
+        for (i, p) in self.processes.iter().enumerate() {
+            match p.state {
+                State::Running => return i,
+                _ => continue,
+            }
+        }
+        unreachable!()
+    }
+
     /// Kills currently running process by scheduling out the current process
     /// as `Dead` state. Removes the dead process from the queue, drop the
     /// dead process's instance, and returns the dead process's process ID.
-    fn kill(&mut self, tf: &mut TrapFrame) -> Option<Id> {
+    fn kill(&mut self, tf: &mut TrapFrame) -> ! {
         // schedule out the current running process
-        if self.schedule_out(State::Dead, tf) {
-            let dead_process = self.processes.pop_back().unwrap();
-            let dead_id = dead_process.context.tpidr_els;
+        self.schedule_out(State::Dead, tf);
+        unreachable!()
+        // if self.schedule_out(State::Dead) {
+            // let dead_process = self.processes.pop_back().unwrap();
+            // let dead_id = dead_process.trap_frame.tpidr_els;
             // reclaim id
-            if let Some(last_id) = self.last_id {
-                if last_id == dead_id {
-                    self.last_id = last_id.checked_sub(1);
-                }
-            }
+            // if let Some(last_id) = self.last_id {
+            //     if last_id == dead_id {
+            //         self.last_id = last_id.checked_sub(1);
+            //     }
+            // }
             // drop process instance
-            Some(dead_id)
+        //     Some(dead_id)
+        // } else {
+        //     None
+        // }
+    }
+
+    /// Fork current running process and add the new process into queue.
+    fn fork(&mut self, tf: &TrapFrame) -> OsResult<Id> {
+        let running_thread = self.running_thread();
+        let mut fork_process = self.processes[running_thread].fork()?;
+        // set child process's return value as 0
+        *fork_process.trap_frame = *tf;
+        fork_process.trap_frame.ttbr1_el1 = fork_process.vmap.as_ref().unwrap().get_baddr().as_u64();
+        fork_process.trap_frame.tpidr_els = fork_process.pid;
+        fork_process.trap_frame.x[0] = 0;
+        fork_process.trap_frame.x[7] = 1;
+        if let Some(id) = self.add(fork_process) {
+            kprintln!("fork success, child's id: {}", id);
+            Ok(id)
         } else {
-            None
+            Err(OsError::IdOverflow)
         }
     }
 }

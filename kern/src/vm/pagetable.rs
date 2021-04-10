@@ -10,11 +10,13 @@ use crate::allocator;
 use crate::param::*;
 use crate::vm::{PhysicalAddr, VirtualAddr};
 use crate::ALLOCATOR;
+use crate::console::kprintln;
 
 use aarch64::vmsa::*;
 use shim::const_assert_size;
 
 #[repr(C)]
+#[derive(Clone)]
 pub struct Page([u8; PAGE_SIZE]);
 const_assert_size!(Page, PAGE_SIZE);
 
@@ -29,6 +31,7 @@ impl Page {
 
 #[repr(C)]
 #[repr(align(65536))]
+#[derive(Clone)]
 pub struct L2PageTable {
     pub entries: [RawL2Entry; 8192],
 }
@@ -75,6 +78,7 @@ impl L3Entry {
 
 #[repr(C)]
 #[repr(align(65536))]
+#[derive(Clone)]
 pub struct L3PageTable {
     pub entries: [L3Entry; 8192],
 }
@@ -96,6 +100,7 @@ impl L3PageTable {
 
 #[repr(C)]
 #[repr(align(65536))]
+#[derive(Clone)]
 pub struct PageTable {
     pub l2: L2PageTable,
     pub l3: [L3PageTable; 2],
@@ -138,7 +143,9 @@ impl PageTable {
     /// Panics if the virtual address is not properly aligned to page size.
     /// Panics if extracted L2index exceeds the number of L3PageTable.
     fn locate(va: VirtualAddr) -> (usize, usize) {
+        use crate::console::kprintln;
         if va.as_ptr().align_offset(PAGE_SIZE) > 0 {
+            kprintln!("va: {:x}", va.as_usize());
             panic!("virtual address not aligned to page size");
         }
         let index_l2 = (va.as_usize() & Self::PT_L2_INDEX_MASK) >> Self::PT_L2_INDEX_MASK.trailing_zeros();
@@ -183,6 +190,13 @@ impl PageTable {
     /// will point the start address of the L2PageTable.
     pub fn get_baddr(&self) -> PhysicalAddr {
         self.l2.as_ptr()
+    }
+
+    /// Returns va corresponding physical address.
+    pub fn get_phyaddr(&self, va: VirtualAddr) -> PhysicalAddr {
+        let l3_entry = self.get_entry_l3((va.as_u64() & (!0xFFFF)).into());
+        let phyaddr = l3_entry.0.get_masked(RawL3Entry::ADDR);
+        (phyaddr | (va.as_u64() & 0xFFFF)).into()
     }
 }
 
@@ -320,6 +334,35 @@ impl UserPageTable {
             core::slice::from_raw_parts_mut(physical_addr, PAGE_SIZE)
         }
     }
+
+    /// Set pagetable from another user process.
+    pub fn from(&mut self, old: &UserPageTable) {
+        let mut it = (&mut(*self.0)).into_iter();
+        for old_entry in (*old.0).into_iter() {
+            let new_entry = it.next().unwrap();
+            match old_entry.get_page_addr() {
+                Some(page_addr) => {
+                    let new_addr = unsafe { 
+                        // kprintln!("page fork");
+                        let addr = ALLOCATOR.alloc(Page::layout());
+                        if addr.is_null() {
+                            panic!("allocator fails to allocate a page");
+                        }
+                        core::ptr::copy_nonoverlapping(page_addr.as_ptr(), addr, PAGE_SIZE);
+                        addr as u64
+                    };
+                    *new_entry = *old_entry;
+                    new_entry.0.set_masked(new_addr, RawL3Entry::ADDR);
+                },
+                None => {},
+            }
+        }
+    }
+
+    pub fn get_kaddr(&self, vaddr: VirtualAddr) -> PhysicalAddr {
+        kprintln!("0x{:x}", vaddr.as_u64());
+        self.0.get_phyaddr((vaddr - USER_IMG_BASE.into()))
+    }
 }
 
 impl Deref for KernPageTable {
@@ -356,6 +399,8 @@ impl Drop for UserPageTable {
         for entry in self.into_iter() {
             if entry.is_valid() {
                 // dealloc page
+                use crate::console::kprintln;
+                kprintln!("dealloc page table");
                 let addr = entry.0.get_masked(RawL3Entry::ADDR) as *mut u8;
                 unsafe { 
                     ALLOCATOR.dealloc(addr, Page::layout());

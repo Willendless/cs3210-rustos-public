@@ -12,3 +12,8 @@ authors = [
 edition = "2018"
 
 [dependencies]
+
+[features]
+default = ["user-space"]
+
+"user-space" = []

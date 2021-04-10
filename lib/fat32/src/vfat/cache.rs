@@ -2,6 +2,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::fmt;
 use hashbrown::HashMap;
+use alloc::collections::LinkedList;
 use shim::{io, ioerr};
 
 use crate::traits::BlockDevice;
@@ -26,6 +27,11 @@ pub struct CachedPartition {
     device: Box<dyn BlockDevice>,
     cache: HashMap<u64, CacheEntry>,
     partition: Partition,
+}
+
+
+struct ListNode<> {
+
 }
 
 impl CachedPartition {
@@ -55,6 +61,7 @@ impl CachedPartition {
             device: Box::new(device),
             cache: HashMap::new(),
             partition: partition,
+            // capacity: 64,
         }
     }
 

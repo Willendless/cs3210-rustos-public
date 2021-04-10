@@ -1,20 +1,18 @@
 mod linked_list;
-pub mod util;
+mod util;
 
 mod bin;
 mod bump;
+mod mutex;
 
 type AllocatorImpl = bin::Allocator;
 
 #[cfg(test)]
 mod tests;
 
+use crate::allocator::mutex::Mutex;
 use core::alloc::{GlobalAlloc, Layout};
-use core::fmt;
-
-use crate::console::kprintln;
-use crate::mutex::Mutex;
-use pi::atags::Atags;
+use kernel_api::println;
 
 /// `LocalAlloc` is an analogous trait to the standard library's `GlobalAlloc`,
 /// but it takes `&mut self` in `alloc()` and `dealloc()`.
@@ -43,10 +41,9 @@ impl Allocator {
     ///
     /// Panics if the system's memory map could not be retrieved.
     pub unsafe fn initialize(&self) {
-        kprintln!("mem_allocator: init");
+        // ask one page from kernel
         let (start, end) = memory_map().expect("failed to find memory map");
         *self.0.lock() = Some(AllocatorImpl::new(start, end));
-        kprintln!("mem_allocator: init succeed");
     }
 }
 
@@ -69,32 +66,22 @@ unsafe impl GlobalAlloc for Allocator {
 }
 
 extern "C" {
+    static __text_beg: u8;
     static __text_end: u8;
 }
+
+const PAGE_SIZE: usize = 64 * 1024;
 
 /// Returns the (start address, end address) of the available memory on this
 /// system if it can be determined. If it cannot, `None` is returned.
 ///
 /// This function is expected to return `Some` under all normal cirumstances.
 pub fn memory_map() -> Option<(usize, usize)> {
+    unsafe { println!("text_beg: {:x}, text_end: {:x}", (&__text_beg as *const u8) as usize, (&__text_end as *const u8) as usize);  }
     let _page_size = 1 << 12;
     let binary_end = unsafe { (&__text_end as *const u8) as usize };
 
-    for atag in Atags::get() {
-        if let Some(mematag) = atag.mem() {
-            return Some((binary_end, (mematag.start + mematag.size) as usize));
-        }
-    }
-
-    None
-}
-
-impl fmt::Debug for Allocator {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.0.lock().as_mut() {
-            Some(ref alloc) => write!(f, "{:?}", alloc)?,
-            None => write!(f, "Not yet initialized")?,
-        }
-        Ok(())
-    }
+    let heap_beg = util::align_up(binary_end, PAGE_SIZE);
+    println!("heap_beg: {}", heap_beg);
+    Some((heap_beg, heap_beg + 0x10000))
 }

@@ -2,18 +2,20 @@ use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::string::ToString;
 use shim::io;
-use shim::path::Path;
+use shim::path::{Path, PathBuf};
+use shim::const_assert_size;
 
 use aarch64;
 
 use crate::{VMM, FILESYSTEM, param::*};
-use crate::process::{Stack, State};
+use crate::process::{Stack, State, Context};
 use crate::traps::TrapFrame;
 use crate::vm::*;
 use kernel_api::{OsError, OsResult};
 
 use fat32::traits::FileSystem;
 use fat32::traits::File;
+use crate::fs::PiVFatHandle;
 
 /// Type alias for the type of a process ID.
 pub type Id = u64;
@@ -21,14 +23,22 @@ pub type Id = u64;
 /// A structure that represents the complete state of a process.
 #[derive(Debug)]
 pub struct Process {
+    /// Unique process id.
+    pub pid: Id,
     /// The name of the process.
     pub name: String,
-    /// The saved trap frame of a process.
-    pub context: Box<TrapFrame>,
+    /// TODO: The saved trap frame of a process.
+    pub trap_frame: Box<TrapFrame>,
+    /// The saved kernel thread stack
+    pub context: Box<Context>,
     /// The memory allocation used for the process's stack.
     pub stack: Stack,
     /// The page table describing the Virtual Memory of the process
     pub vmap: Option<Box<UserPageTable>>,
+    /// The open file table of the process
+    pub open_file_table: [Option<fat32::vfat::Entry<PiVFatHandle>>; 16],
+    /// The current working directory of the process
+    pub cwd: PathBuf,
     /// The scheduling state of the process.
     pub state: State,
 }
@@ -41,15 +51,31 @@ impl Process {
     /// `None`. Otherwise returns `Some` of the new `Process`.
     pub fn new(name: &str, kernel_thread: bool) -> OsResult<Process> {
         if let Some(stack) = Stack::new() {
+            let mut context: Box<Context> = Box::new(Default::default());
+            match kernel_thread {
+                true => {
+                    // test purpose
+                    context.lr = kernel_thread_init as *const() as u64;
+                    context.sp_el1 = stack.top().as_u64();
+                },
+                false => {
+                    context.lr = fork_ret as *const() as u64;
+                    context.sp_el1 = stack.top().as_u64();
+                }
+            }
             Ok(Process {
+                pid: 0,
                 name: name.to_string(),
                 stack,
-                context: Box::new(Default::default()),
-                state: State::Ready,
+                context: context,
+                trap_frame: Box::new(Default::default()),
+                state: State::Start,
                 vmap: match kernel_thread {
                     false => Some(Box::new(UserPageTable::new())),
                     true => None,
                 },
+                cwd: PathBuf::from("/"),
+                open_file_table: Default::default(),
             })
         } else {
             Err(OsError::NoMemory)
@@ -57,7 +83,7 @@ impl Process {
     }
 
     /// Load a program stored in the given path by calling `do_load()` method.
-    /// Set trapframe `context` corresponding to the its page table.
+    /// Set trapframe `trap_frame` corresponding to the its page table.
     /// `sp` - the address of stack top
     /// `elr` - the address of image base.
     /// `ttbr0` - the base address of kernel page table
@@ -69,12 +95,14 @@ impl Process {
         use crate::VMM;
         use crate::console::kprintln;
 
+        kprintln!("try load user program");
+
         let mut p = Process::do_load(pn)?;
-        p.context.sp_els = Self::get_stack_top().as_u64();
-        p.context.elr_elx = Self::get_image_base().as_u64();
-        p.context.ttbr0_el1 = VMM.get_baddr().as_u64();
-        p.context.ttbr1_el1 = p.vmap.as_ref().unwrap().get_baddr().as_u64();
-        p.context.spsr_elx = 0b11_0110_0000;
+        p.trap_frame.sp_els = Self::get_stack_top().as_u64();
+        p.trap_frame.elr_elx = Self::get_image_base().as_u64();
+        p.trap_frame.ttbr0_el1 = VMM.get_baddr().as_u64();
+        p.trap_frame.ttbr1_el1 = p.vmap.as_ref().unwrap().get_baddr().as_u64();
+        p.trap_frame.spsr_elx = 0b11_0110_0000;
         Ok(p)
     }
 
@@ -85,14 +113,20 @@ impl Process {
         // use crate::console::kprintln;
         let mut f = FILESYSTEM.open_file(pn.as_ref().clone())?;
         let mut process = Self::new(pn.as_ref().clone().to_str().unwrap(), false)?;
+
         // assign memory page for code
         let mut code_vaddr = Self::get_image_base();
         while !f.is_end() {
             use io::Read;
-            let page = process.vmap.as_mut().expect("use process should have vmap").alloc(code_vaddr, PagePerm::RWX);
+            let page = process.vmap.as_mut().expect("user process should have vmap").alloc(code_vaddr, PagePerm::RWX);
             let read_size = f.read(page)?;
             code_vaddr += read_size.into();
         }
+
+        // assign heap memory
+        code_vaddr = crate::allocator::util::align_up(code_vaddr.as_usize(), PAGE_SIZE).into();
+        process.vmap.as_mut().expect("user process should have vmap").alloc(code_vaddr, PagePerm::RWX);
+
         // stack segment
         let stack_vaddr = Self::get_stack_base();
         process.vmap.as_mut().unwrap().alloc(stack_vaddr, PagePerm::RW);
@@ -138,10 +172,10 @@ impl Process {
     /// Returns `false` in all other cases.
     pub fn is_ready(&mut self) -> bool {
         match self.state {
-            State::Ready => return true,
-            State::Running => return false,
-            State::Dead => return false,
+            State::Ready | State::Running => return true,
+            State::Start => panic!("thread just started should not reach here"),
             State::Waiting(_) => {}
+            State::Dead => return false,
         }
         // handle waiting state process
         let mut state = core::mem::replace(&mut self.state, State::Ready);
@@ -156,4 +190,55 @@ impl Process {
             unreachable!();
         }
     }
+
+    /// Create a new process, copying the parent.
+    pub fn fork(&mut self) -> OsResult<Process> {
+        let mut p = Process::new("", false)?;
+        p.cwd = self.cwd.clone();
+        p.vmap.as_mut().unwrap().from(self.vmap.as_ref().unwrap());
+        Ok(p)
+    }
+
+    /// Write data to buf begin from vaddr.
+    pub fn write_vbuf(&self, data: &str, vaddr: VirtualAddr, size: usize) {
+        let mut paddr = self.vmap.as_ref().unwrap().get_kaddr(vaddr);
+        unsafe { core::ptr::copy(data.as_ptr(), paddr.as_mut_ptr(), size); }
+    }
+}
+
+#[no_mangle]
+extern "C" fn kernel_thread_init() {
+    use crate::shell;
+    loop {
+        // unsafe { kprintln!("process_exe: EL{}", current_el()); } cannot call in el0
+        shell::shell("process0> ");
+    }
+    // TODO: maybe return to user space
+}
+
+// A fork child's very first scheduling
+// will switch to user process.
+#[no_mangle]
+extern "C" fn fork_ret() {
+        // first use trap frame restore context
+        // if not reset x28,29,30, exactly 6 instructions
+        // then reset sp
+        // and clear x0
+        use crate::console::kprintln;
+
+        // kprintln!("fork ret: {:#?}", SCHEDULER.running_process_tf_debug());
+        use crate::SCHEDULER;
+        unsafe {
+            asm!("mov x28, $0
+                mov sp, $1
+                bl context_restore
+                mov x0, x28
+                ldp     x28, x29, [sp], #16
+                ldp     lr, xzr, [sp], #16
+                mov sp, x0
+                mov x0, xzr
+                eret"
+                :: "r"(SCHEDULER.running_process_sp()), "r"(SCHEDULER.running_process_tf())
+                :: "volatile");
+        }
 }

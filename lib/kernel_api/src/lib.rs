@@ -1,5 +1,12 @@
 #![feature(asm)]
 #![no_std]
+#![feature(alloc_error_handler)]
+#![feature(const_fn)]
+#![feature(decl_macro)]
+#![feature(global_asm)]
+#![feature(optin_builtin_traits)]
+#![feature(ptr_internals)]
+#![cfg_attr(not(test), no_std)]
 
 use core::fmt;
 
@@ -32,6 +39,8 @@ pub enum OsError {
     InvalidSocket = 200,
     SocketAlreadyOpen = 201,
     InvalidPort = 202,
+
+    IdOverflow = 300,
 }
 
 impl core::convert::From<u64> for OsError {
@@ -56,6 +65,7 @@ impl core::convert::From<u64> for OsError {
             201 => OsError::SocketAlreadyOpen,
             202 => OsError::InvalidPort,
 
+            300 => OsError::IdOverflow,
             _ => OsError::Unknown,
         }
     }
@@ -81,3 +91,12 @@ pub const NR_TIME: usize = 2;
 pub const NR_EXIT: usize = 3;
 pub const NR_WRITE: usize = 4;
 pub const NR_GETPID: usize = 5;
+pub const NR_FORK: usize = 6;
+pub const NR_YIELD: usize = 7;
+pub const NR_READ: usize = 8;
+pub const NR_GETCWD: usize = 9;
+// TODO: unimplemented
+pub const NR_CHCWD: usize = 10;
+pub const NR_OPEN: usize = 11;
+pub const NR_GETDENTS: usize = 12;
+pub const NR_EXEC: usize = 13;

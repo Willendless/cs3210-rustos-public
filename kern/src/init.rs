@@ -10,6 +10,7 @@ use crate::kmain;
 use crate::param::*;
 
 global_asm!(include_str!("init/vectors.s"));
+global_asm!(include_str!("init/switch.s"));
 
 //
 // big assumptions (better to be checked):

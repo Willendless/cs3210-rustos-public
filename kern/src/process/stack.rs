@@ -57,6 +57,8 @@ impl Stack {
 
 impl Drop for Stack {
     fn drop(&mut self) {
+        use crate::console::kprintln;
+        kprintln!("drop stack");
         unsafe { ALLOCATOR.dealloc(self.as_mut_ptr(), Self::layout()) }
     }
 }

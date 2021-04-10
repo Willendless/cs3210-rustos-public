@@ -26,16 +26,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fib"
-version = "0.1.0"
-dependencies = [
- "aarch64 0.1.0",
- "allocator 0.1.0",
- "kernel_api 0.1.0",
- "shim 0.1.0",
-]
-
-[[package]]
 name = "kernel_api"
 version = "0.1.0"
 dependencies = [
@@ -64,12 +54,27 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "shell"
+version = "0.1.0"
+dependencies = [
+ "aarch64 0.1.0",
+ "allocator 0.1.0",
+ "kernel_api 0.1.0",
+ "shim 0.1.0",
+ "stack-vec 0.1.0",
+]
+
+[[package]]
 name = "shim"
 version = "0.1.0"
 dependencies = [
  "cfg-if 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "core_io 0.1.20190701 (git+https://github.com/Willendless/rust-core_io)",
 ]
+
+[[package]]
+name = "stack-vec"
+version = "0.1.0"
 
 [metadata]
 "checksum cfg-if 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"

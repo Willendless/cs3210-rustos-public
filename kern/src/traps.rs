@@ -44,6 +44,7 @@ pub struct Info {
 #[no_mangle]
 pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
     use aarch64::*;
+    use crate::console::kprintln;
 
     // kprintln!("exception happened: {:#?}", info);
     // kprintln!("current sp: 0x{:x}", SP.get());
@@ -54,7 +55,6 @@ pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
             use aarch64::*;
             use crate::console::kprintln;
             
-            kprintln!("sync exception captured in: 0x{:x}", unsafe { FAR_EL1.get() });
             match Syndrome::from(esr) {
                 Brk(k) => {
                     kprintln!("brk exception: {:#?}", k);
@@ -66,17 +66,25 @@ pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
                     handle_syscall(syscall_num, tf);
                 },
                 other => {
+                    kprintln!("exception happened: {:#?}", info);
+                    kprintln!("sync exception captured in: 0x{:x}", unsafe { FAR_EL1.get() });
                     kprintln!("Currently unhandled sync exception: {:#?}", other);
+                    kprintln!("{:#?}", tf);
+                    loop {
+
+                    }
                 }
             }
         },
         Kind::Irq => {
+            // kprintln!("tf before: {:#?}", tf);
             let int_controller = Controller::new();
             for int in Interrupt::iter() {
                 if int_controller.is_pending(*int) {
                     crate::IRQ.invoke(*int, tf);
                 }
             }
+            // kprintln!("tf after: {:#?}", tf);
         },
         Kind::Fiq => {},
         Kind::SError => {},

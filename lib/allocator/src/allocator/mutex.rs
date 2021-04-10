@@ -3,8 +3,6 @@ use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use core::cell::UnsafeCell;
 use core::ops::{DerefMut, Deref, Drop};
 
-use crate::SCHEDULER;
-use crate::process::State;
 
 #[repr(align(32))]
 pub struct Mutex<T> {

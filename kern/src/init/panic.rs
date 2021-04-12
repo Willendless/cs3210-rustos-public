@@ -28,6 +28,5 @@ fn panic(_info: &PanicInfo) -> ! {
     led.clear();
 
     loop {
-
     }
 }

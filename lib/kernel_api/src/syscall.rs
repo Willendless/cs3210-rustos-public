@@ -110,7 +110,6 @@ pub fn fork() -> OsResult<u64> {
             : "x0", "x7"
             : "volatile");
     }
-    println!("child id: {}, ecode: {}", pid, ecode);
     err_or!(ecode, pid)
 }
 

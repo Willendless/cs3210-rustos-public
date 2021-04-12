@@ -46,10 +46,6 @@ use pi::interrupt::Interrupt;
 use aarch64::*;
 
 unsafe fn kmain() -> ! {
-    // led_light(16);
-    // timer::spin_sleep(Duration::from_millis(5000));
-    // let current_el = unsafe { current_el() };
-    // welcome_output(current_el);
     ALLOCATOR.initialize();
     FILESYSTEM.initialize();
     IRQ.initialize();

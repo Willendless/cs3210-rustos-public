@@ -141,6 +141,7 @@ fn parse_and_run(cwd: &mut PathBuf, line: &str, exit: &mut bool) {
         "cd" => cmd_cd(cwd, &cmd),
         "ls" => cmd_ls(cwd, &cmd),
         "cat" => cmd_cat(cwd, &cmd),
+        "exec" => cmd_exec(cwd, &cmd),
         "sleep" => cmd_sleep(cwd, &cmd),
         "name" => cmd_name(cwd),
         "el" => cmd_el(cwd),
@@ -382,6 +383,23 @@ fn cmd_sleep(_cwd: &PathBuf, cmd: &Command) {
     } else {
         kprintln!("sh: sleep: invalid argument");
     }
+}
+
+fn cmd_exec(cwd: &PathBuf, cmd: &Command) {
+    if cmd.args.len() > 2
+        || cmd.args.len() == 1 {
+        kprintln!("sh: sleep: wrong number of arguments");
+        return;
+    }
+
+    let path = match parse_input_path(cwd, &cmd.args[1].into()) {
+        Ok(path) => path,
+        Err(e) => {
+            kprintln!("sh: ls: {}", e);
+            return;
+        } 
+    };
+    SCHEDULER.load(path);
 }
 
 fn cmd_name(_cwd: &PathBuf) {

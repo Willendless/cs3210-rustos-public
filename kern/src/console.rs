@@ -35,6 +35,10 @@ impl Console {
         self.inner().read_byte()
     }
 
+    pub fn has_byte(&mut self) -> bool {
+        self.inner().has_byte()
+    }
+
     /// Writes the byte `byte` to the UART device.
     pub fn write_byte(&mut self, byte: u8) {
         self.inner().write_byte(byte)

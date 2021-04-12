@@ -6,6 +6,7 @@ use crate::process::State;
 use crate::traps::TrapFrame;
 use crate::SCHEDULER;
 use kernel_api::*;
+use pi::timer;
 
 use crate::console::{kprintln,kprint};
 
@@ -107,6 +108,11 @@ pub fn sys_yield(tf: &mut TrapFrame) {
 /// In addition to the usual status value, this system call returns a
 /// parameter: a byte from CONSOLE
 pub fn sys_read(tf: &mut TrapFrame) {
+    while !CONSOLE.lock().has_byte() {
+        if (timer::current_time() >= SCHEDULER.get_next_tick_time()) {
+            SCHEDULER.switch(State::Ready, tf);
+        }
+    }
     tf.x[0] = CONSOLE.lock().read_byte() as u64;
     tf.x[7] = 1;
 }
@@ -121,6 +127,14 @@ pub fn sys_getcwd(vaddr: u64, size: usize, tf: &mut TrapFrame) {
     SCHEDULER.getcwd(vaddr, size);
     // TODO: adjust return value
     tf.x[7] = 1;
+}
+
+pub fn sys_open() {
+
+}
+
+pub fn sys_readfile(fd: u64, vaddr: u64, size: usize) {
+
 }
 
 pub fn handle_syscall(num: u16, tf: &mut TrapFrame) {

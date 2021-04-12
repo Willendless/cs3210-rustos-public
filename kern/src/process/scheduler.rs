@@ -112,6 +112,12 @@ impl GlobalScheduler {
         })
     }
 
+    pub fn load<P: AsRef<shim::path::Path>>(&self, pn: P) {
+        self.critical(|scheduler| {
+            self.add(Process::load(pn).expect("load failed"));
+        });
+    }
+
     /// Starts executing processes in user space using timer interrupt based
     /// preemptive scheduling. This method should not return under normal conditions.
     pub fn start(&self) -> ! {
@@ -147,6 +153,10 @@ impl GlobalScheduler {
 
     pub fn fork(&self, tf: &TrapFrame) -> OsResult<Id> {
         self.critical(|scheduler| scheduler.fork(tf))
+    }
+
+    pub fn get_next_tick_time(&self) -> core::time::Duration {
+        self.critical(|scheduler| scheduler.processes[scheduler.running_thread()].next_tick_time.unwrap())
     }
 }
 
@@ -191,7 +201,7 @@ impl Scheduler {
             process.pid = 0;
             self.last_id = Some(0);
         }
-        kprintln!("add process {}", process.pid);
+        // kprintln!("add process {}", process.pid);
         // set process state
         process.state = State::Ready;
         new_id = process.pid;
@@ -221,7 +231,7 @@ impl Scheduler {
             State::Ready | State::Waiting(_) => {
                 let running_process = self.processes.remove(index).unwrap();
                 // kprintln!("prev: {:#?}", running_process.context);
-                kprintln!("process {} schedule out", running_process.pid);
+                // kprintln!("process {} schedule out", running_process.pid);
                 self.processes.push_back(running_process);
             },
             State::Dead => {
@@ -234,12 +244,10 @@ impl Scheduler {
                 // core::mem::drop(cur_thread);
                 // remove from process queue
                 // self.processes.remove(self.running_thread()).unwrap();
-                kprintln!("remove ok");
+                // kprintln!("remove ok");
             }
             State::Start | State::Running => unreachable!(),
         }
-        // comsume left time section
-        timer::tick_in(TICK * 3);
 
         unsafe {
             asm!("mov x0, $0
@@ -270,6 +278,10 @@ impl Scheduler {
                 // *tf = *next_process.trap_frame;
                 // set execution state
                 next_process.state = State::Running;
+                // set next tick time, for kernel state yield
+                next_process.next_tick_time = Some(timer::next_tick_time(TICK * 3));
+                // reset timer
+                timer::tick_in(TICK * 3);
 
                 let thread_context = &(*next_process.context) as *const Context as u64;
                 // kprintln!("{:#?}", next_process);
@@ -277,7 +289,7 @@ impl Scheduler {
                 // kprintln!("next:{:#?}", next_process.context);
                 self.processes.push_front(next_process);
 
-                kprintln!("swtch to {} process", pid);
+                // kprintln!("swtch to {} process", pid);
                 // switch from scheduler to kernel thread
                 unsafe {
                     asm!("mov x0, $0

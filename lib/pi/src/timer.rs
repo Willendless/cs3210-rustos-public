@@ -71,3 +71,7 @@ pub fn spin_sleep(t: Duration) {
 pub fn tick_in(t: Duration) {
     Timer::new().tick_in(t);
 }
+
+pub fn next_tick_time(t: Duration) -> Duration {
+    Timer::new().read() + t
+}

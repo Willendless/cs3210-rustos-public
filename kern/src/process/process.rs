@@ -29,18 +29,20 @@ pub struct Process {
     pub name: String,
     /// TODO: The saved trap frame of a process.
     pub trap_frame: Box<TrapFrame>,
-    /// The saved kernel thread stack
+    /// The saved kernel thread stack.
     pub context: Box<Context>,
     /// The memory allocation used for the process's stack.
     pub stack: Stack,
-    /// The page table describing the Virtual Memory of the process
+    /// The page table describing the Virtual Memory of the process.
     pub vmap: Option<Box<UserPageTable>>,
-    /// The open file table of the process
+    /// The open file table of the process.
     pub open_file_table: [Option<fat32::vfat::Entry<PiVFatHandle>>; 16],
-    /// The current working directory of the process
+    /// The current working directory of the process.
     pub cwd: PathBuf,
     /// The scheduling state of the process.
     pub state: State,
+    /// The next tick time of the process.
+    pub next_tick_time: Option<core::time::Duration>,
 }
 
 impl Process {
@@ -76,6 +78,7 @@ impl Process {
                 },
                 cwd: PathBuf::from("/"),
                 open_file_table: Default::default(),
+                next_tick_time: None
             })
         } else {
             Err(OsError::NoMemory)

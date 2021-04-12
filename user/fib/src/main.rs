@@ -28,9 +28,8 @@ fn fib(n: u64) -> u64 {
 fn main() {
     match fork() {
         Ok(id) => {
-            println!("id: {}", id);
             if id == 0 {
-                println!("I am a forked child.");
+                println!("I am a forked child. My id is {}", getpid());
             } else {
                 println!("Started...");
                 let rtn = fib(40);

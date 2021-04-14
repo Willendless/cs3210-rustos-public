@@ -61,12 +61,15 @@ impl GlobalScheduler {
             let rtn = self.critical(|scheduler| scheduler.switch_to());
 
             if let Some(prev_id) = rtn {
+                // prev process now not execute
                 // maybe do some bookkeeping here
-
                 // ex: clean dead process mem
+                // if process(id is prev_id) => clean its resources
                 continue;
             } else {
-                aarch64::wfe();
+                // since currently we don't support nested interrupt
+                // when there is no ready process, we will halt the cpu
+                // aarch64::wfe();
             }
         }
     }
@@ -269,13 +272,13 @@ impl Scheduler {
     /// If there is no process to switch to, returns `None`. Otherwise, returns
     /// `Some` of the next process`s process ID.
     fn switch_to(&mut self) -> Option<Id> {
-        for (i, p) in self.processes.iter_mut().enumerate() {
+        let mut i = 0;
+        while i < self.processes.len() {
+            let p = self.processes.get_mut(i).unwrap();
             if p.is_ready() {
                 let thread_context_ptr: u64;
                 let mut next_process = self.processes.remove(i).unwrap();
                 let pid = next_process.pid;
-                // restore context
-                // *tf = *next_process.trap_frame;
                 // set execution state
                 next_process.state = State::Running;
                 // set next tick time, for kernel state yield
@@ -301,6 +304,10 @@ impl Scheduler {
                 }
                 
                 return Some(pid);
+            } else if p.is_dead() {
+                self.processes.remove(i).unwrap();
+            } else {
+                i += 1;
             }
         }
         None
@@ -322,26 +329,11 @@ impl Scheduler {
     }
 
     /// Kills currently running process by scheduling out the current process
-    /// as `Dead` state. Removes the dead process from the queue, drop the
-    /// dead process's instance, and returns the dead process's process ID.
+    /// as `Dead` state. The dead process's resource will be recycled by scheduler thread.
     fn kill(&mut self, tf: &mut TrapFrame) -> ! {
         // schedule out the current running process
         self.schedule_out(State::Dead, tf);
         unreachable!()
-        // if self.schedule_out(State::Dead) {
-            // let dead_process = self.processes.pop_back().unwrap();
-            // let dead_id = dead_process.trap_frame.tpidr_els;
-            // reclaim id
-            // if let Some(last_id) = self.last_id {
-            //     if last_id == dead_id {
-            //         self.last_id = last_id.checked_sub(1);
-            //     }
-            // }
-            // drop process instance
-        //     Some(dead_id)
-        // } else {
-        //     None
-        // }
     }
 
     /// Fork current running process and add the new process into queue.
@@ -359,25 +351,6 @@ impl Scheduler {
             Ok(id)
         } else {
             Err(OsError::IdOverflow)
-        }
-    }
-}
-
-pub extern "C" fn  test_user_process() -> ! {
-    loop {
-        let ms = 10000;
-        let error: u64;
-        let elapsed_ms: u64;
-
-        unsafe {
-            asm!("mov x0, $2
-              svc 1
-              mov $0, x0
-              mov $1, x7"
-                 : "=r"(elapsed_ms), "=r"(error)
-                 : "r"(ms)
-                 : "x0", "x7"
-                 : "volatile");
         }
     }
 }

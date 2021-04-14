@@ -21,6 +21,7 @@ pub fn sys_sleep(ms: u32, tf: &mut TrapFrame) {
     let current_time = pi::timer::current_time();
     if let Some(awake_time) = current_time.checked_add(Duration::from_millis(ms.into())) {
         let is_awake = Box::new(move |p: &mut crate::process::Process| {
+            kprintln!("current time: {:#?}, awake_time: {:#?}", pi::timer::current_time(), awake_time);
             if pi::timer::current_time() >= awake_time {
                 p.trap_frame.x[0] = (pi::timer::current_time() - current_time).as_millis() as u64;
                 p.trap_frame.x[7] = 1;

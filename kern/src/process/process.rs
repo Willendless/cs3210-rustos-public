@@ -194,6 +194,13 @@ impl Process {
         }
     }
 
+    pub fn is_dead(&self) -> bool {
+        match self.state {
+            State::Dead => true,
+            _ => false,
+        }
+    }
+
     /// Create a new process, copying the parent.
     pub fn fork(&mut self) -> OsResult<Process> {
         let mut p = Process::new("", false)?;
@@ -223,10 +230,7 @@ extern "C" fn kernel_thread_init() {
 // will switch to user process.
 #[no_mangle]
 extern "C" fn fork_ret() {
-        // first use trap frame restore context
-        // if not reset x28,29,30, exactly 6 instructions
-        // then reset sp
-        // and clear x0
+        // first use trap frame to restore context
         use crate::console::kprintln;
 
         // kprintln!("fork ret: {:#?}", SCHEDULER.running_process_tf_debug());

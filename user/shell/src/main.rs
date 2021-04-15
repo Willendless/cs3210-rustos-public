@@ -10,17 +10,13 @@ mod cr0;
 extern crate alloc;
 
 use kernel_api::{println, print};
-use kernel_api::syscall::{fork, getpid, time, exit, read, brk};
 use allocator::allocator::Allocator;
-use alloc::string::String;
 
-use shim::io;
-use shim::path::{Path, PathBuf};
+// use shim::io;
+use shim::path::PathBuf;
 use shim::path::Component::*;
-
 use core::str;
 use stack_vec::StackVec;
-use alloc::vec::Vec;
 
 use kernel_api::syscall;
 
@@ -89,6 +85,7 @@ pub fn main() {
         let cmd = str::from_utf8(&line_buf).unwrap();
         parse_and_run(&mut cwd, cmd, &mut exit);
     }
+    syscall::exit();
 }
 
 fn read_command(buf: &mut StackVec<u8>) {
@@ -145,7 +142,7 @@ fn parse_and_run(cwd: &mut PathBuf, line: &str, exit: &mut bool) {
         "brk" => cmd_brk(cwd),
         // "name" => cmd_name(cwd),
         // "sp" => cmd_sp(cwd),
-        // "exit" => *exit = true,
+        "exit" => *exit = true,
         _ => println!("unknown command: {}", cmd.path()),
     }
 }

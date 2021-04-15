@@ -46,7 +46,7 @@ pub struct Process {
     /// The next tick time of the process.
     pub next_tick_time: Option<core::time::Duration>,
     // Lab 5 2.C
-    /// Socket handles held by the current process
+    // Socket handles held by the current process
     // pub sockets: Vec<SocketHandle>,
 }
 
@@ -103,9 +103,8 @@ impl Process {
         use crate::VMM;
         use crate::console::kprintln;
 
-        kprintln!("try load user program");
-
         let mut p = Process::do_load(pn)?;
+        info!("process: user program load succeed");
         p.trap_frame.sp_els = Self::get_stack_top().as_u64();
         p.trap_frame.elr_elx = Self::get_image_base().as_u64();
         p.trap_frame.ttbr0_el1 = VMM.get_baddr().as_u64();

@@ -61,14 +61,14 @@ impl<'a> Command<'a> {
 
 /// Starts a shell using `prefix` as the prefix for each line. This function
 /// never returns.
-pub fn shell(prefix: &str) {
+pub fn shell(prefix: &str) -> !{
     // Accept commands at most 512 bytes in length.
     let mut line_buf = [0u8;512];
     let mut line_buf = StackVec::new(&mut line_buf);
     let mut cwd = PathBuf::from("/");
     let mut exit = false;
 
-    while !exit {
+    loop {
         // Clear input line buf.
         line_buf.truncate(0);
         // Prefix before user entering command.

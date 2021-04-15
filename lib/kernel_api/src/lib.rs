@@ -12,7 +12,7 @@ use core::fmt;
 
 use shim::io;
 
-#[cfg(feature = "user-space")]
+// TODO: #[cfg(feature = "user-space")]
 pub mod syscall;
 
 pub type OsResult<T> = core::result::Result<T, OsError>;

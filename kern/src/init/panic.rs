@@ -3,12 +3,12 @@ use crate::console::kprintln;
 use pi::gpio::Gpio;
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
     kprintln!("          The pi is overdone.");
     kprintln!("------------------ PANIC -------------------");
     kprintln!("");
 
-    if let Some(location) = _info.location() {
+    if let Some(location) = info.location() {
         kprintln!("FILE: {}", location.file());
         kprintln!("LINE: {}", location.line());
         kprintln!("COL: {}", location.column());
@@ -17,8 +17,8 @@ fn panic(_info: &PanicInfo) -> ! {
         kprintln!("failed to get location information...");
     }
 
-    if let Some(s) = _info.payload().downcast_ref::<&str>() {
-        kprintln!("Error: {:#?}", s);
+    if let Some(s) = info.payload().downcast_ref::<&str>() {
+        kprintln!("Error: {:?}", s);
     } else {
         kprintln!("Error: no info");
     }

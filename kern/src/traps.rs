@@ -49,48 +49,44 @@ pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
     use aarch64::*;
     use crate::console::kprintln;
 
-    // kprintln!("exception happened: {:#?}", info);
-    // kprintln!("current sp: 0x{:x}", SP.get());
+    trace!("exception happened: {:#?}", info);
+    trace!("current sp: 0x{:x}", SP.get());
 
     match info.kind {
         Kind::Synchronous => {
             use Syndrome::*;
             use aarch64::*;
-            use crate::console::kprintln;
             
             match Syndrome::from(esr) {
                 Brk(k) => {
-                    kprintln!("brk exception: {:#?}", k);
+                    trace!("brk exception: {:#?}", k);
                     shell::shell("test > ");
                     tf.elr_elx += 4;
                 },
                 Svc(syscall_num) => {
-                    // kprintln!("syscall: {}", syscall_num);
+                    trace!("syscall {} triggered", syscall_num);
                     handle_syscall(syscall_num, tf);
                 },
                 other => {
-                    kprintln!("exception happened: {:#?}", info);
-                    kprintln!("sync exception captured in: 0x{:x}", unsafe { FAR_EL1.get() });
-                    kprintln!("Currently unhandled sync exception: {:#?}", other);
-                    kprintln!("{:#?}", tf);
-                    loop {
-
-                    }
+                    trace!("exception happened: {:#?}", info);
+                    trace!("sync exception captured in: 0x{:x}", unsafe { FAR_EL1.get() });
+                    trace!("Currently unhandled sync exception: {:#?}", other);
+                    trace!("{:#?}", tf);
+                    trace!("unhandled exception left");
                 }
             }
         },
         Kind::Irq => {
-            // kprintln!("interrupt happended: {:#?}", info);
+            trace!("interrupt happended: {:#?}", info);
             let int_controller = Controller::new();
             for int in Interrupt::iter() {
-                if int_controller.is_pending(*int) {
-                    crate::IRQ.invoke(*int, tf);
+                if int_controller.is_pending(int) {
+                    crate::GLOABAL_IRQ.invoke(int, tf);
                 }
             }
-            // kprintln!("tf after: {:#?}", tf);
+            trace!("tf after: {:#?}", tf);
         },
         Kind::Fiq => {},
         Kind::SError => {},
     }
-    unimplemented!("handle_exception")
 }

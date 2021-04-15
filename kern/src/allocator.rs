@@ -14,6 +14,7 @@ use core::fmt;
 
 use crate::mutex::Mutex;
 use pi::atags::Atags;
+use crate::console::{kprint, kprintln};
 
 /// `LocalAlloc` is an analogous trait to the standard library's `GlobalAlloc`,
 /// but it takes `&mut self` in `alloc()` and `dealloc()`.
@@ -42,11 +43,11 @@ impl Allocator {
     ///
     /// Panics if the system's memory map could not be retrieved.
     pub unsafe fn initialize(&self) {
-        kprintln!("mem_allocator: init");
+        info!("mem_allocator: init");
         let (start, end) = memory_map().expect("failed to find memory map");
         info!("heap beg: {:x}, end: {:x}", start, end);
         *self.0.lock() = Some(AllocatorImpl::new(start, end));
-        kprintln!("mem_allocator: init succeed");
+        info!("mem_allocator: init succeed");
     }
 }
 

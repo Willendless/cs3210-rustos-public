@@ -111,31 +111,15 @@ impl<I, T> IrqHandlerRegistry<I> for T
 where
     T: Index<I, Output = IrqHandlerMutex>,
 {
-    /// The caller should assure that `initialize()` has been called before calling this function.
-    // pub fn register(&self, int: Interrupt, handler: IrqHandler) {
-    //     self.0
-    //         .lock()
-    //         .as_mut()
-    //         .expect("irq not initialized")[Interrupt::to_index(int)] = Some(handler);
-    // }
-
-    /// Executes an irq handler for the givven interrupt.
-    /// The caller should assure that `initialize()` has been called before calling this function.
-    // pub fn invoke(&self, int: Interrupt, tf: &mut TrapFrame) {
-    //     self.0
-    //         .lock()
-    //         .as_mut()
-    //         .expect("irq not initialized")[Interrupt::to_index(int)]
-    //         .as_mut()
-    //         .expect("lack irq handler")(tf);
-
     /// Register an irq handler for an interrupt.
     fn register(&self, int: I, handler: IrqHandler) {
-        unimplemented!("register()")
+        *self[int].lock() = Some(Box::new(handler));
     }
 
     /// Executes an irq handler for the given interrupt.
     fn invoke(&self, int: I, tf: &mut TrapFrame) {
-        unimplemented!("invoke()")
+        self[int].lock()
+                 .as_mut()
+                 .expect("interrupt handler not initialized")(tf);
     }
 }

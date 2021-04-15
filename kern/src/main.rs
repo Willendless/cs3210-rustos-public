@@ -36,6 +36,7 @@ use net::GlobalEthernetDriver;
 use process::GlobalScheduler;
 use traps::irq::{Fiq, GlobalIrq};
 use vm::VMManager;
+use console::{kprintln};
 
 #[cfg_attr(not(test), global_allocator)]
 pub static ALLOCATOR: Allocator = Allocator::uninitialized();
@@ -66,11 +67,13 @@ unsafe fn kmain() -> ! {
         &__bss_beg as *const _ as u64, &__bss_end as *const _ as u64
     );
 
+    welcome_output();
     ALLOCATOR.initialize();
     FILESYSTEM.initialize();
-
-    welcome_output();
-    shell::shell("> ");
+    VMM.initialize();
+    VMM.setup();
+    SCHEDULER.initialize();
+    SCHEDULER.start()
 }
 
 // use pi::timer;
@@ -94,8 +97,7 @@ unsafe fn kmain() -> ! {
 //     led.set();
 // }
 
-fn welcome_output(current_el: u8) {
-    kprintln!("current exception level: EL{}", current_el);
-    kprintln!("Welcome to EOS :) by LJR");
+fn welcome_output() {
+    info!("Welcome to EOS :) by LJR");
     // TODO: output EOS logo
 }

@@ -18,6 +18,7 @@ use smoltcp::time::Instant;
 
 use crate::console::{kprintln, kprint};
 use crate::VMM;
+use crate::GlobalIrq;
 use crate::process::{Id, Process, State, Context};
 use crate::mutex::Mutex;
 use crate::net::uspi::TKernelTimerHandle;
@@ -74,16 +75,6 @@ impl GlobalScheduler {
                 // maybe do some bookkeeping here
                 // ex: clean dead process mem
                 // if process(id is prev_id) => clean its resources
-                trace!(
-                    "[core-{}] switch_to {:?}, pc: {:x}, lr: {:x}, x29: {:x}, x28: {:x}, x27: {:x}",
-                    affinity(),
-                    id,
-                    tf.elr,
-                    tf.xs[30],
-                    tf.xs[29],
-                    tf.xs[28],
-                    tf.xs[27]
-                );
                 continue;
             } else {
                 // since currently we don't support nested interrupt
@@ -144,27 +135,14 @@ impl GlobalScheduler {
     /// preemptive scheduling. This method should not return under normal
     /// conditions.
     pub fn start(&self) -> ! {
-        // enable timer interrupt
-        Controller::new().enable(Interrupt::Timer1);
-        // set timer TICK match
-        timer::tick_in(TICK * 3);
-        // register trap handler function
-        crate::IRQ.register(Interrupt::Timer1, Box::new(move |tf: &mut TrapFrame| {
-            timer::tick_in(TICK * 3);
-            crate::SCHEDULER.switch(State::Ready, tf);
-        }));
-
-        self.init_user_process()
-    }
-
-    /// Set up first user process
-    fn init_user_process(&self) -> !{
-        // for _ in 0..4 {
-        //     self.add(Process::load("/fib").expect("succeed creating process"));
-        // }
-        for _ in 0..1 {
-            self.add(Process::load("/shell").expect("succeed creating process"));
-        }
+        info!("process: start");
+        // init timer interrupt
+        self.initialize_global_timer_interrupt();
+        info!("process: create first process");
+        // Shell process image should already in the file system(sd card)
+        self.add(Process::load("/shell").expect("succeed creating process"));
+        info!("scheduler: init succeed");
+        // Switch to the first user process
         self.switch_to()
     }
 
@@ -177,7 +155,17 @@ impl GlobalScheduler {
     /// Registers a timer handler with `Usb::start_kernel_timer` which will
     /// invoke `poll_ethernet` after 1 second.
     pub fn initialize_global_timer_interrupt(&self) {
-        unimplemented!("initialize_global_timer_interrupt()")
+        info!("process: timer_interrupt init");
+        // enable timer interrupt
+        Controller::new().enable(Interrupt::Timer1);
+        // set timer TICK match
+        timer::tick_in(TICK * 3);
+        // register trap handler function
+        crate::GLOABAL_IRQ.register(Interrupt::Timer1, Box::new(move |tf: &mut TrapFrame| {
+            timer::tick_in(TICK * 3);
+            crate::SCHEDULER.switch(State::Ready, tf);
+        }));
+        info!("process: timer_interrupt init succeed");
     }
 
     /// Initializes the per-core local timer interrupt with `pi::local_interrupt`.
@@ -190,9 +178,8 @@ impl GlobalScheduler {
 
     /// Initializes the scheduler and add userspace processes to the Scheduler.
     pub unsafe fn initialize(&self) {
-        unimplemented!("GlobalScheduler::initialize()")
-    //     *self.0.lock() = Some(Scheduler::new());
-    //     kprintln!("scheduler:: initialize");
+        info!("scheduler: init");
+        *self.0.lock() = Some(Scheduler::new());
     }
 
     pub fn fork(&self, tf: &TrapFrame) -> OsResult<Id> {
@@ -220,14 +207,12 @@ pub struct Scheduler {
 
 impl Scheduler {
     /// Returns a new `Scheduler` with an empty queue.
-    // fn new() -> Scheduler {
-    //     Scheduler {
-    //         processes: VecDeque::new(),
-    //         last_id: None,
-    //         context: Box::new(Default::default()),
-    //     }
     fn new() -> Box<Scheduler> {
-        unimplemented!("Scheduler::new()")
+        Box::new(Scheduler {
+            processes: VecDeque::new(),
+            last_id: None,
+            context: Box::new(Default::default()),
+        })
     }
 
     /// Adds a process to the scheduler's queue and returns that process's ID if
@@ -274,6 +259,8 @@ impl Scheduler {
         let index = self.running_thread();
         let mut cur_thread = &mut self.processes[index];
 
+        trace!("process {} scheduled out", cur_thread.pid);
+
         // TODO(store trap frame): consider remove redundant trap frame
         *cur_thread.trap_frame = *tf;
 
@@ -293,7 +280,7 @@ impl Scheduler {
                 if self.last_id.unwrap() == id {
                     self.last_id = id.checked_sub(1);
                 }
-                kprintln!("thread {} dead", id);
+                trace!("process {} dead", id);
                 // core::mem::drop(cur_thread);
                 // remove from process queue
                 // self.processes.remove(self.running_thread()).unwrap();
@@ -336,10 +323,10 @@ impl Scheduler {
                 // reset timer
                 timer::tick_in(TICK * 3);
 
+                // prepare for context switch
                 let thread_context = &(*next_process.context) as *const Context as u64;
-                // kprintln!("{:#?}", next_process);
                 // push into queue
-                // kprintln!("next:{:#?}", next_process.context);
+                trace!("process {} begin to run", next_process.pid);
                 self.processes.push_front(next_process);
 
                 // kprintln!("swtch to {} process", pid);
@@ -388,7 +375,7 @@ impl Scheduler {
     /// Panics if the search fails.
     pub fn find_process(&mut self, tf: &TrapFrame) -> &mut Process {
         for i in 0..self.processes.len() {
-            if self.processes[i].context.tpidr == tf.tpidr {
+            if self.processes[i].trap_frame.tpidr_els == tf.tpidr_els {
                 return &mut self.processes[i];
             }
         }
@@ -430,7 +417,7 @@ impl fmt::Debug for Scheduler {
             write!(
                 f,
                 "    queue[{}]: proc({:3})-{:?} \n",
-                i, self.processes[i].context.tpidr, self.processes[i].state
+                i, self.processes[i].trap_frame.tpidr_els, self.processes[i].state
             )?;
         }
         Ok(())

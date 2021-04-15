@@ -91,16 +91,3 @@ go_kmain:
     // jump to kmain, which shouldn't return. halt if it does
     bl      kinit
     b       halt
-
-context_save:
-    // FIXME: Save the remaining context to the stack.
-
-.global context_restore
-context_restore:
-    // FIXME: Restore the context from the stack.
-
-    ret
-
-.align 11
-_vectors:
-    // FIXME: Setup the 16 exception vectors.

@@ -116,11 +116,12 @@ impl PageTable {
     fn new(perm: u64) -> Box<PageTable> {
         let mut pt = Box::new(PageTable {
             l2: L2PageTable::new(),
-            l3: [L3PageTable::new(), L3PageTable::new()],
+            l3: [L3PageTable::new(), L3PageTable::new(), L3PageTable::new()],
         });
 
-        // L2 page table only have two entries
-        for i in 0..=1 {
+        // L2 page table have at most three valid entries
+        let l2_entry_nums = pt.l3.len();
+        for i in 0..l2_entry_nums {
             let entry = &mut pt.l2.entries[i];
             entry.set(pt.l3[i].as_ptr().as_u64());
             entry.set_bit(RawL2Entry::AF);
@@ -149,7 +150,7 @@ impl PageTable {
         }
         let index_l2 = (va.as_usize() & Self::PT_L2_INDEX_MASK) >> Self::PT_L2_INDEX_MASK.trailing_zeros();
         let index_l3 = (va.as_usize() & Self::PT_L3_INDEX_MASK) >> Self::PT_L3_INDEX_MASK.trailing_zeros();
-        if index_l2 < 2 {
+        if index_l2 < 3 {
             (index_l2, index_l3)
         } else {
             panic!("level2 index larger than 2")
@@ -205,7 +206,8 @@ impl<'a> IntoIterator for &'a PageTable {
     type IntoIter = Chain<core::slice::Iter<'a, L3Entry>, core::slice::Iter<'a, L3Entry>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.l3[0].entries.iter().chain(self.l3[1].entries.iter())
+        self.l3[0].entries.iter()
+                          .chain(self.l3[1].entries.iter())
     }
 }
 
@@ -214,10 +216,10 @@ impl<'a> IntoIterator for &'a mut PageTable {
     type IntoIter = Chain<core::slice::IterMut<'a, L3Entry>, core::slice::IterMut<'a, L3Entry>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        let (a, b) = self.l3.split_at_mut(1);
-        let iter_0 = a[0].entries.iter_mut();
-        let iter_1 = b[0].entries.iter_mut();
-        iter_0.chain(iter_1)
+        let (page_0, page_12) = self.l3.split_at_mut(1);
+        let (page_1, _) = page_12.split_at_mut(1);
+        page_0[0].entries.iter_mut()
+                         .chain(page_1[0].entries.iter_mut())
     }
 }
 
@@ -255,7 +257,7 @@ impl KernPageTable {
 
         // set entry for peripherals
         addr = IO_BASE;
-        while addr + PAGE_SIZE <= IO_BASE_END {
+        while addr + PAGE_SIZE <= IO_BASE_END - 0x2000_0000 {
             // for kernel pagetable, virtual addr and physical addr are the same thing
             let vaddr = addr.into();
             let mut entry = RawL3Entry::new(0);
@@ -301,7 +303,6 @@ impl UserPageTable {
     /// TODO. use Result<T> and make it failurable
     /// TODO. use perm properly
     pub fn alloc(&mut self, va: VirtualAddr, _perm: PagePerm) -> &mut [u8] {
-        unimplemented!("alloc()")
         if va.as_usize() < USER_IMG_BASE {
             panic!("virtual address is lower than USER_IMG_BASE");
         }

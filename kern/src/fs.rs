@@ -59,27 +59,27 @@ impl FileSystem {
     ///
     /// Panics if the underlying disk or file sytem failed to initialize.
     pub unsafe fn initialize(&self) {
-        kprintln!("filesystem: init");
+        info!("filesystem: init");
         let sd = match Sd::new() {
             Ok(sd) => sd,
             Err(e) => {
-                kprintln!("FileSystem::initialize: failed to initialize sd controller");
-                kprintln!("Error: {:#?}", e);
+                info!("FileSystem::initialize: failed to initialize sd controller");
+                info!("Error: {:#?}", e);
                 return;
             }
         };
-        kprintln!("filesystem: sd driver init succeed");
+        info!("filesystem: sd driver init succeed");
         let vfat: PiVFatHandle = match VFat::from(sd) {
             Ok(vfat) => vfat,
             Err(e) => {
-                kprintln!("FileSystem::initialize: failed to get vfat handle");
-                kprintln!("{:#?}", e);
+                info!("FileSystem::initialize: failed to get vfat handle");
+                info!("{:#?}", e);
                 return;
             }
         };
-        kprintln!("filesystem: vfat init succeed");
+        info!("filesystem: vfat init succeed");
         *self.0.lock() = Some(vfat);
-        kprintln!("filesystem: init succeed");
+        info!("filesystem: init succeed");
     }
 }
 

@@ -33,11 +33,13 @@ impl VMManager {
     /// Initializes the virtual memory manager.
     /// The caller should assure that the method is invoked only once during the kernel
     /// initialization.
-    // pub fn initialize(&self) {
-    //     *self.0.lock() = Some(KernPageTable::new());
-    //     self.setup();
     pub unsafe fn initialize(&self) {
-        unimplemented!()
+        // use crate::console::kprintln;
+        info!("vmm: kern pt init");
+        let kern_pt = KernPageTable::new();
+        self.kern_pt_addr.store(kern_pt.get_baddr().as_usize(), Ordering::Relaxed);
+        *self.kern_pt.lock() = Some(kern_pt);
+        info!("vmm: kern pt init succeed")
     }
 
     /// Set up the virtual memory manager for the current core.
@@ -110,7 +112,7 @@ impl VMManager {
 
     /// Returns the base address of the kernel page table as `PhysicalAddr`.
     pub fn get_baddr(&self) -> PhysicalAddr {
-        // self.0.lock().as_ref().unwrap().get_baddr()
-        unimplemented!()
+        // TODO: 
+        self.kern_pt_addr.load(Ordering::Relaxed).into()
     }
 }

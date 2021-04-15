@@ -57,13 +57,12 @@ pub fn exit() -> ! {
     unsafe {
         asm!("svc $0"
             :: "i"(NR_EXIT)
-            : "volatile");
+            :: "volatile");
     }
     unreachable!()
 }
 
 pub fn write(b: u8) {
-    unimplemented!("write()")
     unsafe {
         asm!("mov x0, $0
               svc $1"
@@ -140,7 +139,14 @@ pub fn brk() {
 }
 
 pub fn write_str(msg: &str) {
-    unimplemented!("write_str()")
+    unsafe {
+        asm!("mov x0, $0
+              mov x1, $1
+              svc $2"
+            :: "r"(msg.as_ptr()), "r"(msg.len()), "i"(NR_WRITE_STR)
+            : "x0", "x1"
+            : "volatile")
+    }
 }
 
 pub fn sock_create() -> SocketDescriptor {

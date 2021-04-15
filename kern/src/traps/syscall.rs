@@ -3,16 +3,14 @@ use core::time::Duration;
 
 use smoltcp::wire::{IpAddress, IpEndpoint};
 
-use crate::console::{kprint, CONSOLE};
+use crate::console::{kprint, CONSOLE, kprintln};
 use crate::param::USER_IMG_BASE;
 use crate::process::State;
 use crate::traps::TrapFrame;
 use crate::{ETHERNET, SCHEDULER};
 
-use kernel_api::*;
 use pi::timer;
-
-use crate::console::{kprintln,kprint};
+use kernel_api::*;
 
 /// Sleep for `ms` milliseconds.
 ///
@@ -22,25 +20,24 @@ use crate::console::{kprintln,kprint};
 /// parameter: the approximate true elapsed time from when `sleep` was called to
 /// when `sleep` returned.
 pub fn sys_sleep(ms: u32, tf: &mut TrapFrame) {
-    // let current_time = pi::timer::current_time();
-    // if let Some(awake_time) = current_time.checked_add(Duration::from_millis(ms.into())) {
-    //     let is_awake = Box::new(move |p: &mut crate::process::Process| {
-    //         kprintln!("current time: {:#?}, awake_time: {:#?}", pi::timer::current_time(), awake_time);
-    //         if pi::timer::current_time() >= awake_time {
-    //             p.trap_frame.x[0] = (pi::timer::current_time() - current_time).as_millis() as u64;
-    //             p.trap_frame.x[7] = 1;
-    //             true
-    //         } else {
-    //             false
-    //         }
-    //     });
-    //     SCHEDULER.switch(State::Waiting(is_awake), tf);
-    // } else {
-    //     kprintln!("timer overflow");
+    let current_time = pi::timer::current_time();
+    if let Some(awake_time) = current_time.checked_add(Duration::from_millis(ms.into())) {
+        let is_awake = Box::new(move |p: &mut crate::process::Process| {
+            // kprintln!("current time: {:#?}, awake_time: {:#?}", pi::timer::current_time(), awake_time);
+            if pi::timer::current_time() >= awake_time {
+                p.trap_frame.x[0] = (pi::timer::current_time() - current_time).as_millis() as u64;
+                p.trap_frame.x[7] = 1;
+                true
+            } else {
+                false
+            }
+        });
+        SCHEDULER.switch(State::Waiting(is_awake), tf);
+    } else {
+        kprintln!("timer overflow");
         // timer overflow
-    //     tf.x[7] = 0;
-    // }
-    unimplemented!("sys_sleep()")
+        tf.x[7] = 0;
+    }
 }
 
 /// Returns current time.
@@ -62,9 +59,8 @@ pub fn sys_time(tf: &mut TrapFrame) {
 ///
 /// This system call does not take paramer and does not return any value.
 pub fn sys_exit(tf: &mut TrapFrame) {
-    // kprintln!("call sys_exit");
-    // SCHEDULER.switch(State::Dead, tf);
-    unimplemented!("sys_exit")
+    // TODO: may need to modify
+    SCHEDULER.switch(State::Dead, tf);
 }
 
 /// Writes to console.
@@ -73,9 +69,8 @@ pub fn sys_exit(tf: &mut TrapFrame) {
 ///
 /// It only returns the usual status value.
 pub fn sys_write(b: u8, tf: &mut TrapFrame) {
-    // kprint!("{}", core::str::from_utf8(&[b]).unwrap());
-    // tf.x[7] = 1;
-    unimplemented!("sys_write()")
+    kprint!("{}", core::str::from_utf8(&[b]).unwrap());
+    tf.x[7] = 1;
 }
 
 /// Returns the current process's ID.
@@ -235,6 +230,7 @@ unsafe fn to_user_slice<'a>(va: usize, len: usize) -> OsResult<&'a [u8]> {
         Err(OsError::BadAddress)
     }
 }
+
 /// Returns a mutable slice from a virtual address and a legnth.
 ///
 /// # Errors
@@ -312,32 +308,31 @@ pub fn sys_write_str(va: usize, len: usize, tf: &mut TrapFrame) {
         Ok(msg) => {
             kprint!("{}", msg);
 
-            tf.xs[0] = msg.len() as u64;
-            tf.xs[7] = OsError::Ok as u64;
+            tf.x[0] = msg.len() as u64;
+            tf.x[7] = OsError::Ok as u64;
         }
         Err(e) => {
-            tf.xs[7] = e as u64;
+            tf.x[7] = e as u64;
         }
     }
 }
 
 pub fn handle_syscall(num: u16, tf: &mut TrapFrame) {
-    unimplemented!("handle_syscall()")
+    let num = num as usize;
+    match num {
+        NR_SLEEP => sys_sleep(tf.x[0] as u32, tf),
+        NR_WRITE => sys_write(tf.x[0] as u8, tf),
+        NR_EXIT => sys_exit(tf),
+        NR_GETPID => sys_getpid(tf),
+        NR_TIME => sys_time(tf),
+        NR_FORK => sys_fork(tf),
+        NR_YIELD => sys_yield(tf),
+        NR_READ => sys_read(tf),
+        NR_GETCWD => sys_getcwd(tf.x[0], tf.x[1] as usize, tf),
+        NR_WRITE_STR => sys_write_str(tf.x[0] as usize, tf.x[1] as usize, tf),
+        _ => {
+            kprintln!("unimplemented syscall");
+            unreachable!()
+        }
+    }
 }
-
-// pub fn handle_syscall(num: u16, tf: &mut TrapFrame) {
-//     let num = num as usize;
-//     match num {
-//         NR_SLEEP => sys_sleep(tf.x[0] as u32, tf),
-//         NR_WRITE => sys_write(tf.x[0] as u8, tf),
-//         NR_EXIT => sys_exit(tf),
-//         NR_GETPID => sys_getpid(tf),
-//         NR_TIME => sys_time(tf),
-//         NR_FORK => sys_fork(tf),
-//         NR_YIELD => sys_yield(tf),
-//         NR_READ => sys_read(tf),
-//         NR_GETCWD => sys_getcwd(tf.x[0], tf.x[1] as usize, tf),
-//         _ => {}
-//     }
-//     unimplemented!("sys_getpid()")
-// }

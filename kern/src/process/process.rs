@@ -1,11 +1,13 @@
 use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::string::ToString;
+use alloc::vec::Vec;
 use shim::io;
 use shim::path::{Path, PathBuf};
 use shim::const_assert_size;
 
 use aarch64;
+use smoltcp::socket::SocketHandle;
 
 use crate::{VMM, FILESYSTEM, param::*};
 use crate::process::{Stack, State, Context};
@@ -43,6 +45,9 @@ pub struct Process {
     pub state: State,
     /// The next tick time of the process.
     pub next_tick_time: Option<core::time::Duration>,
+    // Lab 5 2.C
+    /// Socket handles held by the current process
+    // pub sockets: Vec<SocketHandle>,
 }
 
 impl Process {
@@ -85,8 +90,8 @@ impl Process {
         }
     }
 
-    /// Load a program stored in the given path by calling `do_load()` method.
-    /// Set trapframe `trap_frame` corresponding to the its page table.
+    /// Loads a program stored in the given path by calling `do_load()` method.
+    /// Sets trapframe `context` corresponding to its page table.
     /// `sp` - the address of stack top
     /// `elr` - the address of image base.
     /// `ttbr0` - the base address of kernel page table

@@ -6,9 +6,12 @@ pub mod irq;
 pub use self::frame::TrapFrame;
 
 use pi::interrupt::{Controller, Interrupt};
+use pi::local_interrupt::{LocalController, LocalInterrupt};
 
 use self::syndrome::Syndrome;
 use self::syscall::handle_syscall;
+use crate::percore;
+use crate::traps::irq::IrqHandlerRegistry;
 
 use crate::shell;
 
@@ -89,4 +92,5 @@ pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
         Kind::Fiq => {},
         Kind::SError => {},
     }
+    unimplemented!("handle_exception")
 }

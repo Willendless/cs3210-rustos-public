@@ -28,12 +28,16 @@ fn fib(n: u64) -> u64 {
 fn main() {
     match fork() {
         Ok(id) => {
+            let pid = getpid();
             if id == 0 {
                 println!("I am a forked child. My id is {}", getpid());
             } else {
-                println!("Started...");
+                let beg = time();
+                println!("[{:02}] Started: {:?}", pid, beg);
                 let rtn = fib(40);
-                println!("Ended: Result = {}", rtn);
+                let end = time();
+                println!("[{:02}] Ended: {:?}", pid, end);
+                println!("[{:02}] Result: {} ({:?})", pid, rtn, end - beg);
             }
         },
         Err(e) => println!("Err: {:#?}", e)

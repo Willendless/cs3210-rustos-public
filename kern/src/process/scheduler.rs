@@ -1,25 +1,35 @@
 use alloc::boxed::Box;
 use alloc::collections::vec_deque::VecDeque;
 use alloc::string::String;
+use alloc::vec::Vec;
+
+use core::ffi::c_void;
 use core::fmt;
+use core::mem;
+use core::time::Duration;
 
 use aarch64::*;
 use kernel_api::{OsError, OsResult};
 
-use crate::mutex::Mutex;
-use crate::param::{PAGE_MASK, PAGE_SIZE, TICK, USER_IMG_BASE};
-use crate::process::{Id, Process, State, Context};
-use crate::traps::TrapFrame;
-use crate::traps::irq::IrqHandler;
-use crate::VMM;
 use pi::interrupt::{Controller, Interrupt};
 use pi::timer;
+use pi::local_interrupt::LocalInterrupt;
+use smoltcp::time::Instant;
 
 use crate::console::{kprintln, kprint};
+use crate::VMM;
+use crate::process::{Id, Process, State, Context};
+use crate::mutex::Mutex;
+use crate::net::uspi::TKernelTimerHandle;
+use crate::param::*;
+use crate::percore::{get_preemptive_counter, is_mmu_ready, local_irq};
+use crate::traps::irq::IrqHandlerRegistry;
+use crate::traps::TrapFrame;
+use crate::{ETHERNET, USB};
 
 /// Process scheduler for the entire machine.
 #[derive(Debug)]
-pub struct GlobalScheduler(Mutex<Option<Scheduler>>);
+pub struct GlobalScheduler(Mutex<Option<Box<Scheduler>>>);
 
 impl GlobalScheduler {
     /// Returns an uninitialized wrapper around a local scheduler.
@@ -27,8 +37,8 @@ impl GlobalScheduler {
         GlobalScheduler(Mutex::new(None))
     }
 
-    /// Enter a critical region and execute the provided closure with the
-    /// internal scheduler.
+    /// Enters a critical region and execute the provided closure with a mutable
+    /// reference to the inner scheduler.
     pub fn critical<F, R>(&self, f: F) -> R
     where
         F: FnOnce(&mut Scheduler) -> R,
@@ -36,7 +46,6 @@ impl GlobalScheduler {
         let mut guard = self.0.lock();
         f(guard.as_mut().expect("scheduler uninitialized"))
     }
-
 
     /// Adds a process to the scheduler's queue and returns that process's ID.
     /// For more details, see the documentation on `Scheduler::add()`.
@@ -65,6 +74,16 @@ impl GlobalScheduler {
                 // maybe do some bookkeeping here
                 // ex: clean dead process mem
                 // if process(id is prev_id) => clean its resources
+                trace!(
+                    "[core-{}] switch_to {:?}, pc: {:x}, lr: {:x}, x29: {:x}, x28: {:x}, x27: {:x}",
+                    affinity(),
+                    id,
+                    tf.elr,
+                    tf.xs[30],
+                    tf.xs[29],
+                    tf.xs[28],
+                    tf.xs[27]
+                );
                 continue;
             } else {
                 // since currently we don't support nested interrupt
@@ -75,7 +94,7 @@ impl GlobalScheduler {
     }
 
     /// Kills currently running process and returns that process's ID.
-    /// For more details, see the documentaion on `Scheduler::kill()`.
+    /// For more details, see the documentation on `Scheduler::kill()`.
     #[must_use]
     pub fn kill(&self, tf: &mut TrapFrame) -> ! {
         self.critical(|scheduler| scheduler.kill(tf))
@@ -122,7 +141,8 @@ impl GlobalScheduler {
     }
 
     /// Starts executing processes in user space using timer interrupt based
-    /// preemptive scheduling. This method should not return under normal conditions.
+    /// preemptive scheduling. This method should not return under normal
+    /// conditions.
     pub fn start(&self) -> ! {
         // enable timer interrupt
         Controller::new().enable(Interrupt::Timer1);
@@ -148,10 +168,31 @@ impl GlobalScheduler {
         self.switch_to()
     }
 
-    /// Initializes the scheduler and add userspace processes to the Scheduler
+    /// # Lab 4
+    /// Initializes the global timer interrupt with `pi::timer`. The timer
+    /// should be configured in a way that `Timer1` interrupt fires every
+    /// `TICK` duration, which is defined in `param.rs`.
+    ///
+    /// # Lab 5
+    /// Registers a timer handler with `Usb::start_kernel_timer` which will
+    /// invoke `poll_ethernet` after 1 second.
+    pub fn initialize_global_timer_interrupt(&self) {
+        unimplemented!("initialize_global_timer_interrupt()")
+    }
+
+    /// Initializes the per-core local timer interrupt with `pi::local_interrupt`.
+    /// The timer should be configured in a way that `CntpnsIrq` interrupt fires
+    /// every `TICK` duration, which is defined in `param.rs`.
+    pub fn initialize_local_timer_interrupt(&self) {
+        // Lab 5 2.C
+        unimplemented!("initialize_local_timer_interrupt()")
+    }
+
+    /// Initializes the scheduler and add userspace processes to the Scheduler.
     pub unsafe fn initialize(&self) {
-        *self.0.lock() = Some(Scheduler::new());
-        kprintln!("scheduler:: initialize");
+        unimplemented!("GlobalScheduler::initialize()")
+    //     *self.0.lock() = Some(Scheduler::new());
+    //     kprintln!("scheduler:: initialize");
     }
 
     pub fn fork(&self, tf: &TrapFrame) -> OsResult<Id> {
@@ -163,7 +204,14 @@ impl GlobalScheduler {
     }
 }
 
-#[derive(Debug)]
+/// Poll the ethernet driver and re-register a timer handler using
+/// `Usb::start_kernel_timer`.
+extern "C" fn poll_ethernet(_: TKernelTimerHandle, _: *mut c_void, _: *mut c_void) {
+    // Lab 5 2.B
+    unimplemented!("poll_ethernet")
+}
+
+/// Internal scheduler struct which is not thread-safe.
 pub struct Scheduler {
     processes: VecDeque<Process>,
     last_id: Option<Id>,
@@ -172,12 +220,14 @@ pub struct Scheduler {
 
 impl Scheduler {
     /// Returns a new `Scheduler` with an empty queue.
-    fn new() -> Scheduler {
-        Scheduler {
-            processes: VecDeque::new(),
-            last_id: None,
-            context: Box::new(Default::default()),
-        }
+    // fn new() -> Scheduler {
+    //     Scheduler {
+    //         processes: VecDeque::new(),
+    //         last_id: None,
+    //         context: Box::new(Default::default()),
+    //     }
+    fn new() -> Box<Scheduler> {
+        unimplemented!("Scheduler::new()")
     }
 
     /// Adds a process to the scheduler's queue and returns that process's ID if
@@ -328,6 +378,23 @@ impl Scheduler {
         unreachable!()
     }
 
+    /// Releases all process resources held by the current process such as sockets.
+    fn release_process_resources(&mut self, tf: &mut TrapFrame) {
+        // Lab 5 2.C
+        unimplemented!("release_process_resources")
+    }
+
+    /// Finds a process corresponding with tpidr saved in a trap frame.
+    /// Panics if the search fails.
+    pub fn find_process(&mut self, tf: &TrapFrame) -> &mut Process {
+        for i in 0..self.processes.len() {
+            if self.processes[i].context.tpidr == tf.tpidr {
+                return &mut self.processes[i];
+            }
+        }
+        panic!("Invalid TrapFrame");
+    }
+
     /// Kills currently running process by scheduling out the current process
     /// as `Dead` state. The dead process's resource will be recycled by scheduler thread.
     fn kill(&mut self, tf: &mut TrapFrame) -> ! {
@@ -352,5 +419,20 @@ impl Scheduler {
         } else {
             Err(OsError::IdOverflow)
         }
+    }
+}
+
+impl fmt::Debug for Scheduler {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let len = self.processes.len();
+        write!(f, "  [Scheduler] {} processes in the queue\n", len)?;
+        for i in 0..len {
+            write!(
+                f,
+                "    queue[{}]: proc({:3})-{:?} \n",
+                i, self.processes[i].context.tpidr, self.processes[i].state
+            )?;
+        }
+        Ok(())
     }
 }

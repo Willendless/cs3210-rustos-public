@@ -12,7 +12,6 @@ mod tests;
 use core::alloc::{GlobalAlloc, Layout};
 use core::fmt;
 
-use crate::console::kprintln;
 use crate::mutex::Mutex;
 use pi::atags::Atags;
 
@@ -45,6 +44,7 @@ impl Allocator {
     pub unsafe fn initialize(&self) {
         kprintln!("mem_allocator: init");
         let (start, end) = memory_map().expect("failed to find memory map");
+        info!("heap beg: {:x}, end: {:x}", start, end);
         *self.0.lock() = Some(AllocatorImpl::new(start, end));
         kprintln!("mem_allocator: init succeed");
     }

@@ -265,6 +265,8 @@ fn hash_dir_recursive<P: AsRef<Path>>(
     let path = path.as_ref();
     let dir = vfat.open_dir(path).expect("directory");
 
+    eprintln!("dir: {}", dir.name);
+
     write!(hash, "{}\n", path.display())?;
     let entries = hash_dir(hash, dir)?;
     if entries.iter().any(|e| e.is_dir()) {
@@ -556,3 +558,25 @@ fn cmp_files_recursive<P: AsRef<Path>>(
 
     Ok(())
 }
+
+
+// #[test]
+// fn dir_test() {
+//     use crate::traits::fs::Entry::*;
+//     let vfat = vfat_from_resource!("mockmock1.fat32.img");
+//     let dir = vfat.open("/rpi3-docs").as_dir().unwrap();
+
+//     eprintln!("--------");
+//     let ens = dir.entries().unwrap();
+//     for en in ens {
+//         eprintln!("name: {}", en.name());
+//     }
+
+//     eprintln!("--------");
+//     let dir = vfat.open("/rpi3-docs").as_dir().unwrap();
+//     let ens = dir.entries().unwrap();
+//     for en in ens {
+//         eprintln!("name: {}", en.name());
+//     }
+
+// }

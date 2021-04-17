@@ -23,7 +23,7 @@ pub struct Dir<HANDLE: VFatHandle> {
 }
 
 #[repr(C, packed)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct VFatRegularDirEntry {
     // FIXME: Fill me in.
     pub name: [u8; 8],
@@ -43,7 +43,7 @@ pub struct VFatRegularDirEntry {
 const_assert_size!(VFatRegularDirEntry, 32);
 
 #[repr(C, packed)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct VFatLfnDirEntry {
     // FIXME: Fill me in.
     pub sequence_num: u8,
@@ -75,6 +75,7 @@ pub union VFatDirEntry {
     long_filename: VFatLfnDirEntry,
 }
 
+#[derive(Debug)]
 pub enum VFatWrapEntry {
     Reguler(VFatRegularDirEntry),
     LongFilename(VFatLfnDirEntry),
@@ -285,6 +286,7 @@ impl<HANDLE: VFatHandle> Iterator for DirIter<HANDLE> {
         // construct final name
         let name = name.into_iter()
                               .fold(String::new(), |res, cur| res + &cur);
+    
         if is_directory {
             Some(Entry::Dir(Dir {
                 name,

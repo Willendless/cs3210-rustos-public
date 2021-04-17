@@ -1,6 +1,6 @@
 mod block_device;
 mod dummy;
-mod fs;
+pub mod fs;
 mod metadata;
 
 pub use self::block_device::BlockDevice;

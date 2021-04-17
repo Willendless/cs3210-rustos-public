@@ -109,8 +109,8 @@ impl fmt::Display for Metadata {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let created = self.created_timestamp;
         let modified = self.modified_timestamp;
-        write!(f, "{:0<2}/{:0<2}/{:0<2} {:0<2}:{:0<2}:{:0<2}    ", created.year(), created.month(), created.day(), created.hour(), created.minute(), created.second())?;
-        write!(f, "{:0<2}/{:0<2}/{:0<2} {:0<2}:{:0<2}:{:0<2}    ", modified.year(), modified.month(), modified.day(), modified.hour(), modified.minute(), modified.second())
+        write!(f, "{:0>2}/{:0>2}/{:0>2} {:0>2}:{:0>2}:{:0>2}    ", created.year(), created.month(), created.day(), created.hour(), created.minute(), created.second())?;
+        write!(f, "{:0>2}/{:0>2}/{:0>2} {:0>2}:{:0>2}:{:0>2}    ", modified.year(), modified.month(), modified.day(), modified.hour(), modified.minute(), modified.second())
     }
 }
 

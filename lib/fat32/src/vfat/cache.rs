@@ -1,13 +1,12 @@
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::fmt;
-use hashbrown::HashMap;
-use alloc::collections::LinkedList;
 use shim::{io, ioerr};
+use lru_cache::lrucache::LRUCache;
 
 use crate::traits::BlockDevice;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct CacheEntry {
     data: Vec<u8>,
     dirty: bool,
@@ -25,13 +24,9 @@ pub struct Partition {
 
 pub struct CachedPartition {
     device: Box<dyn BlockDevice>,
-    cache: HashMap<u64, CacheEntry>,
+    // cache: HashMap<u64, CacheEntry>,
+    cache: LRUCache<CacheEntry>,
     partition: Partition,
-}
-
-
-struct ListNode<> {
-
 }
 
 impl CachedPartition {
@@ -59,9 +54,8 @@ impl CachedPartition {
 
         CachedPartition {
             device: Box::new(device),
-            cache: HashMap::new(),
+            cache: LRUCache::new(),
             partition: partition,
-            // capacity: 64,
         }
     }
 
@@ -97,17 +91,17 @@ impl CachedPartition {
     #[allow(dead_code)]
     pub fn get_mut(&mut self, sector: u64) -> io::Result<&mut [u8]> {
         if self.cache.contains_key(&sector) {
-            let cache_entry = self.cache.get_mut(&sector).unwrap();
+            let cache_entry = self.cache.get_mut(sector).unwrap();
             cache_entry.dirty = true;
             Ok(cache_entry.data.as_mut_slice())
         } else {
             let mut buf = vec![0; self.sector_size() as usize];
             self.read_sector(sector, &mut buf[..])?;
-            self.cache.insert(sector, CacheEntry {
+            self.cache.put(sector, CacheEntry {
                 data: buf,
                 dirty: true,
             });
-            let cache_entry = self.cache.get_mut(&sector).unwrap();
+            let cache_entry = self.cache.get_mut(sector).unwrap();
             Ok(cache_entry.data.as_mut_slice())
         }
     }
@@ -120,16 +114,16 @@ impl CachedPartition {
     /// Returns an error if there is an error reading the sector from the disk.
     pub fn get(&mut self, sector: u64) -> io::Result<&[u8]> {
         if self.cache.contains_key(&sector) {
-            let cache_entry = self.cache.get(&sector).unwrap();
+            let cache_entry = self.cache.get(sector).unwrap();
             Ok(cache_entry.data.as_slice())
         } else {
             let mut buf = vec![0; self.partition.sector_size as usize];
             self.read_sector(sector, &mut buf[..])?;
-            self.cache.insert(sector, CacheEntry {
+            self.cache.put(sector, CacheEntry {
                 data: buf,
                 dirty: false,
             });
-            let cache_entry = self.cache.get(&sector).unwrap();
+            let cache_entry = self.cache.get(sector).unwrap();
             Ok(cache_entry.data.as_slice())
         }
     }
@@ -177,7 +171,7 @@ impl fmt::Debug for CachedPartition {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("CachedPartition")
             .field("device", &"<block device>")
-            .field("cache", &self.cache)
+            // .field("cache", &self.cache)
             .finish()
     }
 }

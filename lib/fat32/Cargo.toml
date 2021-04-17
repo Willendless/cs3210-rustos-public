@@ -12,6 +12,7 @@ edition = "2018"
 
 [dependencies]
 shim = { path = "../shim", features = ["alloc"] }
+lru_cache = { path = "../lru_cache" }
 hashbrown = "0.6.3"
 
 [dev-dependencies]

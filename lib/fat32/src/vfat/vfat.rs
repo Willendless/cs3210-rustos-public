@@ -278,10 +278,12 @@ impl<'a, HANDLE: VFatHandle> FileSystem for &'a HANDLE {
                     }
                 }, 
                 path::Component::Normal(name) => {
-                    if let Ok(next_entry) = cur_dir.find(name) {
-                        cur_entry = next_entry;
-                    } else {
-                        flag = true;
+                    match cur_dir.find(name) {
+                        Ok(next_entry) => cur_entry = next_entry,
+                        Err(e) => {
+                            flag = true;
+                            // rprintln!("{:#?}: find {:#?} failed", e, name);
+                        }
                     }
                 }
                 _ => continue,

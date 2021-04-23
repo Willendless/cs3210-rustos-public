@@ -52,9 +52,9 @@ impl Sd {
         loop {
             match sd_init() {
                 0 => return Ok(Sd),
-                -1 => kprintln!("{}", "Sd::new sd initialization timeout"),
-                -2 => kprintln!("{}", "Sd::new error sending commands to sd controller"),
-                _ => panic!("Sd::new: code should not reach here"),
+                -1 => warn!("{}", "Sd::new sd initialization timeout"),
+                -2 => warn!("{}", "Sd::new error sending commands to sd controller"),
+                _ => error!("Sd::new: code should not reach here"),
             }
         }
     }

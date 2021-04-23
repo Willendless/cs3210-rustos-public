@@ -342,6 +342,7 @@ impl Scheduler {
                 
                 return Some(pid);
             } else if p.is_dead() {
+                // release dead process's resources
                 self.processes.remove(i).unwrap();
             } else {
                 i += 1;

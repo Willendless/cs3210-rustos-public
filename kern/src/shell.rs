@@ -146,6 +146,7 @@ fn parse_and_run(cwd: &mut PathBuf, line: &str, exit: &mut bool) {
         "name" => cmd_name(cwd),
         "el" => cmd_el(cwd),
         "sp" => cmd_sp(cwd),
+        "draw_screen" => cmd_draw_screen(cwd, &cmd),
         "exit" => *exit = true,
         _ => kprintln!("unknown command: {}", cmd.path()),
     }
@@ -407,7 +408,7 @@ fn cmd_name(_cwd: &PathBuf) {
 }
 
 fn cmd_el(_cwd: &PathBuf) {
-    let current_el = unsafe { current_el() };
+    let current_el = current_el();
     kprintln!("current exception level: {}-{}",
         current_el, 
         match current_el {
@@ -419,4 +420,13 @@ fn cmd_el(_cwd: &PathBuf) {
 
 fn cmd_sp(_cwd: &PathBuf) {
     kprintln!("current sp: 0x{:x}", SP.get());
+}
+
+fn cmd_draw_screen(_cwd: &PathBuf, cmd: &Command) {
+    if cmd.args.len() > 2
+        || cmd.args.len() == 1 {
+        kprintln!("sh: draw_screen: wrong number of arguments");
+        return;
+    }
+    crate::gpu::draw_screen(cmd.args[1]);
 }

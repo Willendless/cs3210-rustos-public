@@ -28,6 +28,7 @@ pub mod process;
 pub mod shell;
 pub mod traps;
 pub mod vm;
+pub mod gpu;
 
 use allocator::Allocator;
 use fs::FileSystem;
@@ -36,7 +37,8 @@ use net::GlobalEthernetDriver;
 use process::GlobalScheduler;
 use traps::irq::{Fiq, GlobalIrq};
 use vm::VMManager;
-use console::{kprintln};
+use gpu::GlobalFrameBuffer;
+// use console::{kprintln};
 
 #[cfg_attr(not(test), global_allocator)]
 pub static ALLOCATOR: Allocator = Allocator::uninitialized();
@@ -47,6 +49,7 @@ pub static USB: Usb = Usb::uninitialized();
 pub static GLOABAL_IRQ: GlobalIrq = GlobalIrq::new();
 pub static FIQ: Fiq = Fiq::new();
 pub static ETHERNET: GlobalEthernetDriver = GlobalEthernetDriver::uninitialized();
+pub static FRAMEBUFFER: GlobalFrameBuffer = GlobalFrameBuffer::uninitialized();
 
 extern "C" {
     static __text_beg: u64;
@@ -70,6 +73,9 @@ unsafe fn kmain() -> ! {
     welcome_output();
     ALLOCATOR.initialize();
     FILESYSTEM.initialize();
+
+    FRAMEBUFFER.initialize();
+    shell::shell("> ");
     VMM.initialize();
     VMM.setup();
     SCHEDULER.initialize();
@@ -99,5 +105,9 @@ unsafe fn kmain() -> ! {
 
 fn welcome_output() {
     info!("Welcome to EOS :) by LJR");
+    let led = pi::gpio::Gpio::new(16);
+    let mut led = led.into_output();
+    led.set();
+    pi::timer::spin_sleep(core::time::Duration::from_millis(20000));
     // TODO: output EOS logo
 }

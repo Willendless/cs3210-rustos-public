@@ -104,7 +104,7 @@ impl<T> SliceExt for [T] {
     }
 
     unsafe fn cast_mut<'a, U>(&'a mut self) -> &'a mut [U] {
-        assert!(align_of::<T>() % align_of::<U>() == 0);
+        // assert!(align_of::<T>() % align_of::<U>() == 0);
 
         let new_len = calc_new_len::<T, U>(self);
         let new_ptr = self.as_mut_ptr() as *mut U;

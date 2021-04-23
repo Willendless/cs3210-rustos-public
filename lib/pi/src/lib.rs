@@ -13,3 +13,4 @@ pub mod interrupt;
 pub mod local_interrupt;
 pub mod timer;
 pub mod uart;
+pub mod mailbox;

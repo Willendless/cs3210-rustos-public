@@ -282,7 +282,6 @@ impl<'a, HANDLE: VFatHandle> FileSystem for &'a HANDLE {
                         Ok(next_entry) => cur_entry = next_entry,
                         Err(e) => {
                             flag = true;
-                            // rprintln!("{:#?}: find {:#?} failed", e, name);
                         }
                     }
                 }

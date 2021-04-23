@@ -41,6 +41,9 @@ pub enum OsError {
     InvalidPort = 202,
 
     IdOverflow = 300,
+
+    MailboxError = 400,
+    MailboxFailed = 401,
 }
 
 impl core::convert::From<u64> for OsError {

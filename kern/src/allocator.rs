@@ -43,11 +43,8 @@ impl Allocator {
     ///
     /// Panics if the system's memory map could not be retrieved.
     pub unsafe fn initialize(&self) {
-        info!("mem_allocator: init");
         let (start, end) = memory_map().expect("failed to find memory map");
-        info!("heap beg: {:x}, end: {:x}", start, end);
         *self.0.lock() = Some(AllocatorImpl::new(start, end));
-        info!("mem_allocator: init succeed");
     }
 }
 
@@ -83,7 +80,7 @@ pub fn memory_map() -> Option<(usize, usize)> {
 
     for atag in Atags::get() {
         if let Some(mematag) = atag.mem() {
-            return Some((binary_end, (mematag.start + mematag.size) as usize));
+            return Some((binary_end, ((mematag.start + mematag.size) as usize).min(pi::common::IO_BASE)));
         }
     }
 

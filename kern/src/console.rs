@@ -41,6 +41,7 @@ impl Console {
 
     /// Writes the byte `byte` to the UART device.
     pub fn write_byte(&mut self, byte: u8) {
+        crate::gpu::gpu_putc(byte, "white", "black");
         self.inner().write_byte(byte)
     }
 }
@@ -53,6 +54,7 @@ impl io::Read for Console {
 
 impl io::Write for Console {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        crate::gpu::gpu_put_buf(buf, "white", "black");
         self.inner().write(buf)
     }
 
@@ -63,6 +65,7 @@ impl io::Write for Console {
 
 impl fmt::Write for Console {
     fn write_str(&mut self, s: &str) -> fmt::Result {
+        crate::gpu::gpu_put_str(s, "white", "black");
         self.inner().write_str(s)
     }
 }

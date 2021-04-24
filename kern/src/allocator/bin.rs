@@ -37,7 +37,6 @@ impl Allocator {
                     let layout = Layout::from_size_align(size, size).unwrap();
                     let addr = bump_allocator.alloc(layout);
                     if !addr.is_null() {
-                        info!("mem_allocator: assign {:#x}B mem at {:?}", size, addr);
                         bins[i].push(addr as *mut usize);
                     } else {
                         break;

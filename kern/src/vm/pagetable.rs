@@ -103,7 +103,7 @@ impl L3PageTable {
 #[derive(Clone)]
 pub struct PageTable {
     pub l2: L2PageTable,
-    pub l3: [L3PageTable; 3],
+    pub l3: [L3PageTable; 2],
 }
 
 impl PageTable {
@@ -116,7 +116,7 @@ impl PageTable {
     fn new(perm: u64) -> Box<PageTable> {
         let mut pt = unsafe { Box::new(PageTable {
             l2: L2PageTable::new(),
-            l3: [core::mem::zeroed(), core::mem::zeroed(), core::mem::zeroed()],
+            l3: [L3PageTable::new(), L3PageTable::new()],
         }) };
 
         // L2 page table have at most three valid entries
@@ -256,8 +256,8 @@ impl KernPageTable {
         }
 
         // set entry for peripherals
-        addr = IO_BASE;
-        while addr + PAGE_SIZE <= IO_BASE_END {
+        addr = GPU_BASE;
+        while addr + PAGE_SIZE <= IO_BASE_END - 0x20000000 {
             // for kernel pagetable, virtual addr and physical addr are the same thing
             let vaddr = addr.into();
             let mut entry = RawL3Entry::new(0);

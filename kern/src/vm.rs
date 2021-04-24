@@ -37,6 +37,7 @@ impl VMManager {
         // use crate::console::kprintln;
         info!("vmm: kern pt init");
         let kern_pt = KernPageTable::new();
+        // info!("{:#?}", kern_pt);
         self.kern_pt_addr.store(kern_pt.get_baddr().as_usize(), Ordering::Relaxed);
         *self.kern_pt.lock() = Some(kern_pt);
         info!("vmm: kern pt init succeed")

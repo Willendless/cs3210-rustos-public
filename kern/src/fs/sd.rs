@@ -35,7 +35,7 @@ extern "C" {
 // The `wait_micros` C signature is: `void wait_micros(unsigned int);`
 #[no_mangle]
 fn wait_micros(us: u32) {
-    timer::spin_sleep(Duration::from_micros((us * 2) as u64));
+    timer::spin_sleep(Duration::from_micros((1000 * us) as u64));
 }
 
 /// A handle to an SD card controller.

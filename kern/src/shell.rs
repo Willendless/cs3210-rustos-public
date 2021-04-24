@@ -14,6 +14,7 @@ use core::str;
 use crate::console::{kprint, kprintln, CONSOLE};
 use crate::FILESYSTEM;
 use crate::SCHEDULER;
+use crate::FRAMEBUFFER;
 
 use alloc::vec::Vec;
 
@@ -147,6 +148,7 @@ fn parse_and_run(cwd: &mut PathBuf, line: &str, exit: &mut bool) {
         "el" => cmd_el(cwd),
         "sp" => cmd_sp(cwd),
         "draw_screen" => cmd_draw_screen(cwd, &cmd),
+        "frame_buffer" => cmd_frame_buffer(cwd),
         "exit" => *exit = true,
         _ => kprintln!("unknown command: {}", cmd.path()),
     }
@@ -429,4 +431,8 @@ fn cmd_draw_screen(_cwd: &PathBuf, cmd: &Command) {
         return;
     }
     crate::gpu::draw_screen(cmd.args[1]);
+}
+
+fn cmd_frame_buffer(_cwd: &PathBuf) {
+    FRAMEBUFFER.print_fb();
 }

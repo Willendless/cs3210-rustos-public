@@ -38,7 +38,7 @@ use process::GlobalScheduler;
 use traps::irq::{Fiq, GlobalIrq};
 use vm::VMManager;
 use gpu::GlobalFrameBuffer;
-// use console::{kprintln};
+use console::{kprintln};
 
 #[cfg_attr(not(test), global_allocator)]
 pub static ALLOCATOR: Allocator = Allocator::uninitialized();
@@ -61,21 +61,18 @@ extern "C" {
 unsafe fn kmain() -> ! {
     crate::logger::init_logger();
 
-    info!(
-        "text beg: {:016x}, end: {:016x}",
-        &__text_beg as *const _ as u64, &__text_end as *const _ as u64
-    );
-    info!(
-        "bss  beg: {:016x}, end: {:016x}",
-        &__bss_beg as *const _ as u64, &__bss_end as *const _ as u64
-    );
+    // info!(
+    //     "text beg: {:016x}, end: {:016x}",
+    //     &__text_beg as *const _ as u64, &__text_end as *const _ as u64
+    // );
+    // info!(
+    //     "bss  beg: {:016x}, end: {:016x}",
+    //     &__bss_beg as *const _ as u64, &__bss_end as *const _ as u64
+    // );
 
-    welcome_output();
     ALLOCATOR.initialize();
-    FILESYSTEM.initialize();
-
     FRAMEBUFFER.initialize();
-    shell::shell("> ");
+    FILESYSTEM.initialize();
     VMM.initialize();
     VMM.setup();
     SCHEDULER.initialize();
@@ -108,6 +105,6 @@ fn welcome_output() {
     let led = pi::gpio::Gpio::new(16);
     let mut led = led.into_output();
     led.set();
-    pi::timer::spin_sleep(core::time::Duration::from_millis(20000));
+    pi::timer::spin_sleep(core::time::Duration::from_millis(5000));
     // TODO: output EOS logo
 }

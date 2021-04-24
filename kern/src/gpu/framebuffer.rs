@@ -2,8 +2,7 @@ use crate::gpu::msg;
 use crate::gpu::msg::{Tag, TagID, TagValueBuffer};
 use crate::gpu::Pixel;
 use crate::mutex::Mutex;
-use alloc::boxed::Box;
-use alloc::vec::Vec;
+use crate::console::{kprintln};
 
 pub const WIDTH: u32 = 480;
 pub const HEIGHT: u32 = 320;
@@ -15,6 +14,10 @@ impl GlobalFrameBuffer {
     pub const fn uninitialized() -> GlobalFrameBuffer {
         GlobalFrameBuffer(Mutex::new(None))
     }
+    
+    pub fn is_initialized(&self) -> bool {
+        self.0.lock().is_some()
+    }
 
     pub fn critical<F, R>(&self, f: F) -> R
     where
@@ -25,19 +28,22 @@ impl GlobalFrameBuffer {
     }
 
     pub fn initialize(&self) {
-        info!("framebuffer: init");
         let fb = FrameBuffer::new();
         match fb {
             Some(buf) => {
-                info!("framebuffer: addr: 0x{:x}, size: {}",
-                    buf.buffer.as_ptr() as usize, buf.size);
-                info!("framebuffer: width: {}, height: {}, vwidth: {}, vheight: {}, voffset_x: {}, voffset_y: {}, ",
-                    buf.width, buf.height,
-                    buf.vwidth, buf.vheight,
-                    buf.voffset_x, buf.voffset_y,
-                );
-                info!("framebuffer: depth: {}, pitch: {}, porder: {}", buf.depth, buf.pitch, buf.porder);
                 *self.0.lock() = Some(buf);
+                self.critical(|buf| {
+                    info!("framebuffer: init");
+                    info!("framebuffer: addr: 0x{:x}, size: {}",
+                        buf.buffer.as_ptr() as usize, buf.size);
+                    info!("framebuffer: width: {}, height: {}, vwidth: {}, vheight: {}, voffset_x: {}, voffset_y: {}, ",
+                        buf.width, buf.height,
+                        buf.vwidth, buf.vheight,
+                        buf.voffset_x, buf.voffset_y,
+                    );
+                    info!("framebuffer: depth: {}, pitch: {}, porder: {}", buf.depth, buf.pitch, buf.porder);
+                    info!("framebuffer: init succeed");
+                });
             }
             None => info!("frambuffer: failed")
         }
@@ -51,6 +57,49 @@ impl GlobalFrameBuffer {
             fb.buffer[pos + 2] = pixel.red;
         })
     }
+
+    pub fn get_pixel(&self, x: u32, y: u32) -> Pixel {
+        self.critical(|fb| {
+            let pos = (y * fb.pitch + x * fb.depth / 8) as usize;
+            Pixel {
+                blue: fb.buffer[pos],
+                green: fb.buffer[pos + 1],
+                red: fb.buffer[pos + 2],
+            }
+        })
+    }
+
+    pub fn set_voffset_x(&self, x: u32) {
+        self.critical(|fb| {
+            fb.voffset_x = x;
+        })
+    }
+
+    pub fn set_voffset_y(&self, y: u32) {
+        self.critical(|fb| {
+            fb.voffset_y = y;
+        })
+    }
+
+    pub fn get_voffset_x(&self) -> u32 {
+        self.critical(|fb| {
+            fb.voffset_x
+        })
+    }
+
+    pub fn get_voffset_y(&self) -> u32 {
+        self.critical(|fb| {
+            fb.voffset_y
+        })
+    }
+
+    pub fn print_fb(&self) {
+        self.critical(|fb| {
+            kprintln!("width: {}, height: {}, vwidth: {}, vheight: {}", fb.width, fb.height, fb.vwidth, fb.vheight);
+            kprintln!("depth: {}, pitch: {}, size: {}", fb.depth, fb.pitch, fb.size);
+        })
+    }
+
 }
 
 pub struct FrameBuffer {
@@ -69,48 +118,46 @@ pub struct FrameBuffer {
 
 impl FrameBuffer {
     pub fn new() -> Option<FrameBuffer> {
-        let mut tags: Vec<Tag> = Vec::new();
-        // 0: set physical dim
-        tags.push(Tag {
-            id: TagID::FBSetPhysicalDim,
-            value_buffer: TagValueBuffer::FBPhysicalDim(WIDTH, HEIGHT)
-        });
-        // 1: set virtual dim
-        tags.push(Tag {
-            id: TagID::FBSetVirtualDim,
-            value_buffer: TagValueBuffer::FBVirtualDim(WIDTH, HEIGHT)
-        });
-        // 2: set depth
-        tags.push(Tag {
-            id: TagID::FBSetDepth,
-            value_buffer: TagValueBuffer::FBDepth(24),
-        });
-        // 3: set virtual offset to 0, 0
-        tags.push(Tag {
-            id: TagID::FBSetVirtualOffset,
-            value_buffer: TagValueBuffer::FBVirtualOffset(0, 0),
-        });
-        // 4: get pitch
-        tags.push(Tag {
-            id: TagID::FBGetPitch,
-            value_buffer: TagValueBuffer::FBPitch(0),
-        });
-        // 5: allocate frame buffer
-        tags.push(Tag {
-            id: TagID::FBAllocate,
-            value_buffer: TagValueBuffer::FBAlign(16, 0),
-        });
-        // 6: set pixel order to RGB
-        tags.push(Tag {
-            id: TagID::FBSetPixelOrder,
-            value_buffer: TagValueBuffer::FBPixelOrder(1),
-        });
-        match msg::send_messages(&mut tags) {
-            Ok(_) => info!("framebuffer: message sent succeed"),
-            Err(_) => {
-                info!("framebuffer: message sent failed");
-                return None;
-            }
+        let mut tags: [Tag; 7] = [
+            // 0: set physical dim
+            Tag {
+                id: TagID::FBSetPhysicalDim,
+                value_buffer: TagValueBuffer::FBPhysicalDim(WIDTH, HEIGHT)
+            },
+            // 1: set virtual dim
+            Tag {
+                id: TagID::FBSetVirtualDim,
+                value_buffer: TagValueBuffer::FBVirtualDim(WIDTH, HEIGHT)
+            },
+            // 2: set depth
+            Tag {
+                id: TagID::FBSetDepth,
+                value_buffer: TagValueBuffer::FBDepth(24),
+            },
+            // 3: set virtual offset to 0, 0
+            Tag {
+                id: TagID::FBSetVirtualOffset,
+                value_buffer: TagValueBuffer::FBVirtualOffset(0, 0),
+            },
+            // 4: get pitch
+            Tag {
+                id: TagID::FBGetPitch,
+                value_buffer: TagValueBuffer::FBPitch(0),
+            },
+            // 5: allocate frame buffer
+            Tag {
+                id: TagID::FBAllocate,
+                value_buffer: TagValueBuffer::FBAlign(16, 0),
+            },
+            // 6: set pixel order to RGB
+            Tag {
+                id: TagID::FBSetPixelOrder,
+                value_buffer: TagValueBuffer::FBPixelOrder(1),
+            },
+        ];
+        match msg::send_messages(&mut tags[..]) {
+            Ok(_) => {}
+            Err(_) => unreachable!()
         }
         let (width, height) = tags[0].value_buffer.as_fb_physical_dim().unwrap();
         let (vwidth, vheight) = tags[1].value_buffer.as_fb_virtual_dim().unwrap();

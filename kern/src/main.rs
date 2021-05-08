@@ -70,6 +70,7 @@ unsafe fn kmain() -> ! {
     //     &__bss_beg as *const _ as u64, &__bss_end as *const _ as u64
     // );
 
+    // pi::timer::spin_sleep(core::time::Duration::from_millis(20000));
     ALLOCATOR.initialize();
     FRAMEBUFFER.initialize();
     FILESYSTEM.initialize();
@@ -100,11 +101,10 @@ unsafe fn kmain() -> ! {
 //     led.set();
 // }
 
-fn welcome_output() {
-    info!("Welcome to EOS :) by LJR");
-    let led = pi::gpio::Gpio::new(16);
-    let mut led = led.into_output();
-    led.set();
-    pi::timer::spin_sleep(core::time::Duration::from_millis(5000));
+// fn welcome_output() {
+//     info!("Welcome to EOS :) by LJR");
+    // let led = pi::gpio::Gpio::new(16);
+    // let mut led = led.into_output();
+    // led.set();
     // TODO: output EOS logo
-}
+// }

@@ -103,6 +103,7 @@ pub const NR_OPEN: usize = 11;
 pub const NR_GETDENTS: usize = 12;
 pub const NR_EXEC: usize = 13;
 pub const NR_WRITE_STR: usize = 14;
+pub const NR_GETPRIORITY: usize = 15;
 // TODO: socket related
 pub const NR_SOCK_CREATE: usize = 20;
 pub const NR_SOCK_STATUS: usize = 21;

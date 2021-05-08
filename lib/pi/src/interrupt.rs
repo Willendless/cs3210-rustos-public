@@ -53,8 +53,9 @@ struct Registers {
     irq_pending: [ReadVolatile<u32>; 2],
     fiq_control: Volatile<u32>,
     irq_enable: [Volatile<u32>; 2],
+    irq_basic_enable: Volatile<u32>,
     irq_disable: [Volatile<u32>; 2],
-    disable_basic_irq: Volatile<u32>,
+    irq_basic_disable: Volatile<u32>,
 }
 
 /// An interrupt controller. Used to enable and disable interrupts as well as to
@@ -73,7 +74,10 @@ impl Controller {
 
     /// Enables the interrupt `int`.
     pub fn enable(&mut self, int: Interrupt) {
-        self.registers.irq_enable[Self::irq_reg(int)].write(Self::irq_mask(int))
+        while self.registers.irq_enable[Self::irq_reg(int)].read() & Self::irq_mask(int) == 0 {
+            let pre = self.registers.irq_enable[Self::irq_reg(int)].read();
+            self.registers.irq_enable[Self::irq_reg(int)].write(pre | Self::irq_mask(int))
+        }
     }
 
     /// Disables the interrupt `int`.

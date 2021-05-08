@@ -143,6 +143,7 @@ fn parse_and_run(cwd: &mut PathBuf, line: &str, exit: &mut bool) {
         // "name" => cmd_name(cwd),
         // "sp" => cmd_sp(cwd),
         "exit" => *exit = true,
+        "getpriority" => cmd_getpriority(cwd),
         _ => println!("unknown command: {}", cmd.path()),
     }
 }
@@ -402,4 +403,18 @@ fn cmd_getpid(_cwd: &PathBuf) {
 ///
 fn cmd_brk(_cwd: &PathBuf) {
     syscall::brk();
+}
+
+/// Get current process's priority.
+///
+/// process's priority
+///
+fn cmd_getpriority(_cwd:&PathBuf) {
+    match syscall::getpriority() {
+        0 => println!("priority: Low"),
+        1 => println!("priority: Medium"),
+        2 => println!("pirority: High"),
+        3 => println!("priority: Max"),
+        _ => println!("Error: Unknown priority"),
+    };
 }

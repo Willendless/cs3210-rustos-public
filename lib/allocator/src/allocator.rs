@@ -77,11 +77,10 @@ const PAGE_SIZE: usize = 64 * 1024;
 ///
 /// This function is expected to return `Some` under all normal cirumstances.
 pub fn memory_map() -> Option<(usize, usize)> {
-    unsafe { println!("text_beg: {:x}, text_end: {:x}", (&__text_beg as *const u8) as usize, (&__text_end as *const u8) as usize);  }
+    // unsafe { info!("text_beg: {:x}, text_end: {:x}", (&__text_beg as *const u8) as usize, (&__text_end as *const u8) as usize);  }
     let _page_size = 1 << 12;
     let binary_end = unsafe { (&__text_end as *const u8) as usize };
 
     let heap_beg = util::align_up(binary_end, PAGE_SIZE);
-    println!("heap_beg: {}", heap_beg);
     Some((heap_beg, heap_beg + 0x10000))
 }

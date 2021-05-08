@@ -2,7 +2,7 @@ use crate::common::IO_BASE;
 use core::time::Duration;
 
 use volatile::prelude::*;
-use volatile::{ReadVolatile, Volatile};
+use volatile::{ReadVolatile, WriteVolatile, Volatile};
 
 /// The base address for the ARM system timer registers.
 const TIMER_REG_BASE: usize = IO_BASE + 0x3000;
@@ -13,7 +13,10 @@ struct Registers {
     CS: Volatile<u32>,
     CLO: ReadVolatile<u32>,
     CHI: ReadVolatile<u32>,
-    COMPARE: Volatile<u32>,
+    COMPARE0: WriteVolatile<u32>,
+    COMPARE1: WriteVolatile<u32>,
+    COMPARE2: WriteVolatile<u32>,
+    COMPARE3: WriteVolatile<u32>,
 }
 
 /// The Raspberry Pi ARM system timer.
@@ -41,9 +44,11 @@ impl Timer {
     /// interrupts for timer 1 are enabled and IRQs are unmasked, then a timer
     /// interrupt will be issued in `t` duration.
     pub fn tick_in(&mut self, t: Duration) {
-        let end = t + current_time();
-        self.registers.CS.write(1);
-        self.registers.COMPARE.write(end.as_micros() as u32);
+        let end = t + self.read();
+        while self.registers.CS.read() & 0b10 > 0 {
+            self.registers.CS.write(0b10);
+        }
+        self.registers.COMPARE1.write(end.as_micros() as u32);
     }
 }
 

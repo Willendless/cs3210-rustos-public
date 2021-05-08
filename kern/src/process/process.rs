@@ -19,8 +19,42 @@ use fat32::traits::FileSystem;
 use fat32::traits::File;
 use crate::fs::PiVFatHandle;
 
+use core::fmt::{self, Debug};
+
 /// Type alias for the type of a process ID.
 pub type Id = u64;
+
+#[derive(Debug, Copy, Clone)]
+pub enum Priority {
+    Low = 0,
+    Medium = 1,
+    High = 2,
+    Max = 3
+}
+
+impl From<u64> for Priority {
+    fn from(p: u64) -> Priority {
+        use Priority::*;
+        match p {
+            0 => Low,
+            1 => Medium,
+            2 => High,
+            3 => Max,
+            _ => panic!("Unknown priority: {}", p),
+        }
+    }
+}
+
+// impl Debug for Priority {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+//         match self {
+//             Low => write!(f, "Low"),
+//             Medium => write!(f, "Medium"),
+//             High => write!(f, "High"),
+//             Max => write!(f, "Max"),
+//         }
+//     }
+// }
 
 /// A structure that represents the complete state of a process.
 #[derive(Debug)]
@@ -45,6 +79,8 @@ pub struct Process {
     pub state: State,
     /// The next tick time of the process.
     pub next_tick_time: Option<core::time::Duration>,
+    /// The priority of the process.
+    pub priority: Priority,
     // Lab 5 2.C
     // Socket handles held by the current process
     // pub sockets: Vec<SocketHandle>,
@@ -83,7 +119,8 @@ impl Process {
                 },
                 cwd: PathBuf::from("/"),
                 open_file_table: Default::default(),
-                next_tick_time: None
+                next_tick_time: None,
+                priority: Priority::Low,
             })
         } else {
             Err(OsError::NoMemory)
@@ -109,7 +146,7 @@ impl Process {
         p.trap_frame.elr_elx = Self::get_image_base().as_u64();
         p.trap_frame.ttbr0_el1 = VMM.get_baddr().as_u64();
         p.trap_frame.ttbr1_el1 = p.vmap.as_ref().unwrap().get_baddr().as_u64();
-        p.trap_frame.spsr_elx = 0b11_0110_0000;
+        p.trap_frame.spsr_elx = 0b11_0100_0000;
         Ok(p)
     }
 

@@ -149,6 +149,7 @@ fn parse_and_run(cwd: &mut PathBuf, line: &str, exit: &mut bool) {
         "sp" => cmd_sp(cwd),
         "draw_screen" => cmd_draw_screen(cwd, &cmd),
         "frame_buffer" => cmd_frame_buffer(cwd),
+        "tick_in" => cmd_tick_in(cwd, &cmd),
         "exit" => *exit = true,
         _ => kprintln!("unknown command: {}", cmd.path()),
     }
@@ -389,9 +390,9 @@ fn cmd_sleep(_cwd: &PathBuf, cmd: &Command) {
 }
 
 fn cmd_exec(cwd: &PathBuf, cmd: &Command) {
-    if cmd.args.len() > 2
+    if cmd.args.len() > 3
         || cmd.args.len() == 1 {
-        kprintln!("sh: sleep: wrong number of arguments");
+        kprintln!("sh: exec: wrong number of arguments");
         return;
     }
 
@@ -402,7 +403,15 @@ fn cmd_exec(cwd: &PathBuf, cmd: &Command) {
             return;
         } 
     };
-    SCHEDULER.load(path);
+    if cmd.args.len() == 2 {
+        SCHEDULER.load(path, None);
+    } else {
+        if let Ok(priority) = cmd.args[2].parse::<u64>() {
+            SCHEDULER.load(path, Some(priority.into()));
+        } else {
+            kprintln!("sh: exec: invalid priority argument");
+        }
+    }
 }
 
 fn cmd_name(_cwd: &PathBuf) {
@@ -435,4 +444,15 @@ fn cmd_draw_screen(_cwd: &PathBuf, cmd: &Command) {
 
 fn cmd_frame_buffer(_cwd: &PathBuf) {
     FRAMEBUFFER.print_fb();
+}
+
+fn cmd_tick_in(_cwd: &PathBuf, cmd: &Command) {
+    if cmd.args.len() > 2
+        || cmd.args.len() == 1 {
+        kprintln!("sh: tick_in: wrong number of arguments");
+        return;
+    }
+    if let Ok(tick_interval) = cmd.args[1].parse::<u64>() {
+        pi::timer::tick_in(core::time::Duration::from_micros(tick_interval));
+    }
 }

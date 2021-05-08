@@ -98,6 +98,19 @@ pub fn getpid() -> u64 {
     pid
 }
 
+pub fn getpriority() -> u64 {
+    let priority: u64;
+    unsafe {
+        asm!("svc $1
+              mov $0, x0"
+            : "=r"(priority)
+            : "i"(NR_GETPRIORITY)
+            : "x0"
+            : "volatile");
+    }
+    priority
+}
+
 pub fn fork() -> OsResult<u64> {
     let pid: u64;
     let ecode: u64;
@@ -137,6 +150,7 @@ pub fn brk() {
         asm!("brk 0":::: "volatile");
     }
 }
+
 
 pub fn write_str(msg: &str) {
     unsafe {

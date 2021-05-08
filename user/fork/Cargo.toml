@@ -1,0 +1,18 @@
+[package]
+name = "fork"
+version = "0.1.0"
+authors = [
+    "Jiarui Li <10175101250@stu.ecnu.edu.cn>"
+]
+edition = "2018"
+
+[package.metadata.cargo-xbuild]
+memcpy = true
+
+[dependencies]
+allocator = { path = "../../lib/allocator" }
+aarch64 = { path = "../../lib/aarch64/" }
+kernel_api = { path = "../../lib/kernel_api" }
+
+[dev-dependencies]
+shim = {  path = "../../lib/shim", features = ["alloc"] }

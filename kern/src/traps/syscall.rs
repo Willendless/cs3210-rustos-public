@@ -84,12 +84,18 @@ pub fn sys_getpid(tf: &mut TrapFrame) {
     tf.x[7] = 1;
 }
 
+
+pub fn sys_getpriority(tf: &mut TrapFrame) {
+    tf.x[0] = SCHEDULER.get_priority();
+    tf.x[7] = 1;
+}
+
 /// Fork current process. 
 ///
 /// If success, current process will receive forked process's id
 /// and the forked process will receive 0.
 pub fn sys_fork(tf: &mut TrapFrame) {
-    kprintln!("call sys_fork");
+    info!("syscall: sys_fork called");
     match SCHEDULER.fork(tf) {
         Ok(id) => {
             tf.x[0] = id;
@@ -330,6 +336,7 @@ pub fn handle_syscall(num: u16, tf: &mut TrapFrame) {
         NR_READ => sys_read(tf),
         NR_GETCWD => sys_getcwd(tf.x[0], tf.x[1] as usize, tf),
         NR_WRITE_STR => sys_write_str(tf.x[0] as usize, tf.x[1] as usize, tf),
+        NR_GETPRIORITY => sys_getpriority(tf),
         _ => {
             kprintln!("unimplemented syscall");
             unreachable!()

@@ -49,9 +49,6 @@ pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
     use aarch64::*;
     use crate::console::kprintln;
 
-    trace!("exception happened: {:#?}", info);
-    trace!("current sp: 0x{:x}", SP.get());
-
     match info.kind {
         Kind::Synchronous => {
             use Syndrome::*;
@@ -77,14 +74,13 @@ pub extern "C" fn handle_exception(info: Info, esr: u32, tf: &mut TrapFrame) {
             }
         },
         Kind::Irq => {
-            trace!("interrupt happended: {:#?}", info);
+            trace!("exception happened, kind: {:#?}", info.kind);
             let int_controller = Controller::new();
             for int in Interrupt::iter() {
                 if int_controller.is_pending(int) {
                     crate::GLOABAL_IRQ.invoke(int, tf);
                 }
             }
-            trace!("tf after: {:#?}", tf);
         },
         Kind::Fiq => {},
         Kind::SError => {},

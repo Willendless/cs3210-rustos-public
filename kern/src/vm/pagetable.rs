@@ -401,7 +401,7 @@ impl Drop for UserPageTable {
             if entry.is_valid() {
                 // dealloc page
                 use crate::console::kprintln;
-                kprintln!("dealloc page table");
+                trace!("dealloc page table");
                 let addr = entry.0.get_masked(RawL3Entry::ADDR) as *mut u8;
                 unsafe { 
                     ALLOCATOR.dealloc(addr, Page::layout());
